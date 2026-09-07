@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#153f32" />
+    <title>Agrii Field Services — Stakeholder Prototype</title>
+    <link rel="stylesheet" href="styles.css?v=3" />
+  </head>
+  <body>
+    <div class="demo-banner">
+      <span>Stakeholder prototype</span>
+      <span class="demo-banner__hint">Demo data · Nothing is saved</span>
+    </div>
+
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Primary navigation">
+        <a class="brand" href="#" aria-label="Agrii Field Services home">
+          <span class="brand__mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span>
+            <strong>agrii</strong>
+            <small>Field Services</small>
+          </span>
+        </a>
+
+        <nav class="primary-nav" id="primary-nav"></nav>
+
+        <div class="sidebar__footer">
+          <div class="support-link">
+            <span class="support-link__icon">?</span>
+            <span><strong>Need help?</strong><small>Field support centre</small></span>
+          </div>
+          <div class="powered-by">Powered by <strong>S2L</strong></div>
+        </div>
+      </aside>
+
+      <section class="workspace">
+        <header class="topbar">
+          <button class="icon-button menu-button" id="menu-button" type="button" aria-label="Open navigation">☰</button>
+          <div class="mobile-brand">agrii <span>Field Services</span></div>
+          <label class="role-switcher">
+            <span>Viewing as</span>
+            <select id="role-select" aria-label="Switch demo role">
+              <option value="sales">Sales</option>
+              <option value="manager">Sampling Manager</option>
+              <option value="operator">Operator</option>
+              <option value="finance">Finance / Admin</option>
+            </select>
+          </label>
+          <div class="topbar__actions">
+            <button class="icon-button notification-button" type="button" aria-label="Notifications">
+              <span aria-hidden="true">●</span>
+            </button>
+            <div class="user-chip">
+              <div class="avatar" id="user-avatar">EC</div>
+              <div><strong id="user-name">Emma Clarke</strong><small id="user-role">Regional Account Manager</small></div>
+            </div>
+          </div>
+        </header>
+
+        <main class="main-content" id="main-content" tabindex="-1"></main>
+      </section>
+    </div>
+
+    <button class="operator-note-fab" id="operator-note-fab" type="button" hidden>
+      <span>＋</span> Add note
+    </button>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <dialog class="modal" id="note-modal">
+      <form method="dialog" class="modal__surface" id="note-form">
+        <header class="modal__header">
+          <div>
+            <span class="eyebrow">JOB-143 · Green Estate</span>
+            <h2>Add field note</h2>
+            <p>Capture an update once. It will be shared with the right teams.</p>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Close">×</button>
+        </header>
+
+        <div class="note-tabs" role="tablist" aria-label="Note input method">
+          <button type="button" class="note-tab is-active" role="tab" aria-selected="true" data-note-tab="type">Type note</button>
+          <button type="button" class="note-tab" role="tab" aria-selected="false" data-note-tab="voice">Voice note</button>
+          <button type="button" class="note-tab" role="tab" aria-selected="false" data-note-tab="file">Photo / file</button>
+        </div>
+
+        <section class="note-panel is-active" data-note-panel="type">
+          <label class="field-label" for="typed-note">What happened?</label>
+          <textarea id="typed-note" rows="5">East Meadow is flooded after overnight rain. I spoke with Tom and agreed we will return Thursday if access improves. Sampling cannot start today.</textarea>
+          <div class="quick-tags">
+            <button type="button" data-note-template="Access blocked by standing water. Sampling cannot start today.">Access issue</button>
+            <button type="button" data-note-template="Heavy rain has slowed fieldwork. Partial completion expected.">Heavy rain</button>
+            <button type="button" data-note-template="Customer asked for a follow-up call from their account manager.">Farmer follow-up</button>
+            <button type="button" data-note-template="Sampling equipment requires inspection before work can continue.">Equipment issue</button>
+          </div>
+        </section>
+
+        <section class="note-panel" data-note-panel="voice">
+          <div class="voice-recorder">
+            <button class="record-button" type="button" id="record-button" aria-label="Start recording"><span></span></button>
+            <div><strong id="record-title">Tap to record</strong><small id="record-time">Voice notes keep the original audio and transcript</small></div>
+            <div class="waveform" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          </div>
+          <div class="transcript-card" id="transcript-card" hidden>
+            <div class="transcript-card__heading"><span>AI transcript</span><button type="button">Edit transcript</button></div>
+            <p>East Meadow is flooded after the rain last night. I spoke with Tom; we agreed to try again Thursday if the access track clears. We couldn't begin sampling today.</p>
+          </div>
+        </section>
+
+        <section class="note-panel" data-note-panel="file">
+          <label class="file-drop" for="note-file">
+            <input id="note-file" type="file" accept="image/*,.pdf,.doc,.docx" multiple />
+            <span class="file-drop__icon">↥</span>
+            <strong>Add site photos or documents</strong>
+            <small>JPEG, PNG, PDF or Word · demo only</small>
+          </label>
+          <div class="file-preview" id="file-preview">
+            <div class="photo-placeholder" aria-label="Flooded field photo placeholder"><span>Field photo</span></div>
+            <div><strong>east-meadow-access.jpg</strong><small>Photo evidence · 2.4 MB</small></div>
+            <button type="button" aria-label="Remove file">×</button>
+          </div>
+        </section>
+
+        <section class="ai-review">
+          <div class="ai-review__heading">
+            <span class="ai-spark">✦</span>
+            <div><strong>Suggested interpretation</strong><small>Review before sharing — AI never changes critical CRM data silently.</small></div>
+            <span class="confidence">94% confidence</span>
+          </div>
+          <div class="classification-grid">
+            <label class="classification-option is-selected"><input type="checkbox" checked value="crm" /><span class="classification-icon crm">C</span><span><strong>CRM interaction</strong><small>Farmer contact · Follow-up agreed</small></span></label>
+            <label class="classification-option is-selected"><input type="checkbox" checked value="event" /><span class="classification-icon event">!</span><span><strong>Operational event</strong><small>Flooding · Work blocked · 1 day delay</small></span></label>
+          </div>
+          <label class="field-label compact" for="follow-up-date">Suggested action</label>
+          <div class="suggested-action"><span>Call Tom to confirm Thursday access</span><input id="follow-up-date" type="date" value="2026-09-10" /></div>
+        </section>
+
+        <footer class="modal__footer">
+          <span class="preserved-note">Original note and attachments are always preserved</span>
+          <button class="secondary-button" value="cancel">Cancel</button>
+          <button class="primary-button" type="submit" value="default">Confirm & share</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog class="modal assignment-modal" id="assignment-modal">
+      <form method="dialog" class="modal__surface" id="assignment-form">
+        <header class="modal__header">
+          <div><span class="eyebrow">Manual assignment · Decision captured</span><h2>Assign JOB-145</h2><p>Westcombe Farm · Autumn soil analysis · 28 samples</p></div>
+          <button class="icon-button" value="cancel" aria-label="Close">×</button>
+        </header>
+        <div class="job-context-strip">
+          <span><small>Planned</small><strong>11 Sep · 09:00</strong></span>
+          <span><small>Method</small><strong>Powered corer</strong></span>
+          <span><small>Location</small><strong>Westcombe · 4 fields</strong></span>
+          <span><small>Est. duration</small><strong>4h 10m</strong></span>
+        </div>
+        <div class="operator-options" id="operator-options"></div>
+        <div class="assignment-note">
+          <span class="ai-spark">✦</span>
+          <div><strong id="assignment-reason-title">Why Sarah is recommended</strong><p id="assignment-reason">Nearest available qualified operator, compatible powered corer and strong first-time completion on comparable jobs.</p></div>
+        </div>
+        <footer class="modal__footer">
+          <span class="preserved-note">The decision-time context and later outcome are retained for learning.</span>
+          <button class="secondary-button" value="cancel">Cancel</button>
+          <button class="primary-button" type="submit" value="default">Assign operator</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog class="modal work-order-modal" id="work-order-modal">
+      <form method="dialog" class="modal__surface" id="work-order-form">
+        <header class="modal__header">
+          <div><span class="eyebrow">Sales · New work order</span><h2>Create sampling work</h2><p>Define the customer need now; Operations can turn it into field jobs next.</p></div>
+          <button class="icon-button" value="cancel" aria-label="Close">×</button>
+        </header>
+        <div class="work-order-form">
+          <label class="form-field"><span>Customer</span><select id="order-customer"><option>Green Estate</option><option selected>Westcombe Farms</option><option>Smith & Sons</option><option>Brown Farming Ltd</option></select></label>
+          <label class="form-field"><span>Service</span><select><option selected>Autumn soil analysis</option><option>Precision nutrient plan</option><option>Soil carbon baseline</option></select></label>
+          <label class="form-field"><span>Farm / site</span><select><option selected>Westcombe Farm</option><option>Lower Park</option><option>Home Farm</option></select></label>
+          <label class="form-field"><span>Requested completion</span><input type="date" value="2026-09-24" /></label>
+          <label class="form-field"><span>Sampling method</span><select><option selected>Powered corer · 0–250 mm</option><option>Manual auger · 0–200 mm</option><option>Manager to confirm</option></select></label>
+          <label class="form-field"><span>Customer reference</span><input type="text" value="WF-AUT-2026" /></label>
+          <label class="form-field form-field--wide"><span>Fields included</span><div class="field-selector"><label><input type="checkbox" checked /> North 12 ha</label><label><input type="checkbox" checked /> Home 9 ha</label><label><input type="checkbox" checked /> Orchard 6 ha</label><label><input type="checkbox" checked /> Long Meadow 11 ha</label></div></label>
+          <label class="form-field form-field--wide"><span>Commercial note</span><textarea rows="3">Priority autumn sampling ahead of nutrient planning meeting. Use the east access track.</textarea></label>
+        </div>
+        <div class="order-summary">
+          <span class="ai-spark">✦</span>
+          <div><strong>Draft delivery plan</strong><p>4 fields · 38 ha · approximately 28 samples · estimated fieldwork 4h 10m</p></div>
+          <div class="order-summary__value"><small>Estimated value</small><strong>£2,680</strong></div>
+        </div>
+        <footer class="modal__footer">
+          <span class="preserved-note">Creates the commercial order and an unassigned planning request.</span>
+          <button class="secondary-button" value="cancel">Save draft</button>
+          <button class="primary-button" type="submit" value="default">Create work order</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog class="modal work-order-modal" id="customer-modal">
+      <form method="dialog" class="modal__surface" id="customer-form">
+        <header class="modal__header"><div><span class="eyebrow">Sales · Customer setup</span><h2>Add customer</h2><p>Create the account, primary contact and first farm in one step.</p></div><button class="icon-button" value="cancel" aria-label="Close">×</button></header>
+        <div class="work-order-form">
+          <label class="form-field"><span>Customer organisation</span><input id="new-customer-name" required value="Meadowbrook Farms" /></label>
+          <label class="form-field"><span>Account owner</span><select><option selected>Emma Clarke</option><option>Oliver Grant</option></select></label>
+          <label class="form-field"><span>Primary contact</span><input required value="Laura Bennett" /></label>
+          <label class="form-field"><span>Contact role</span><input value="Farm Manager" /></label>
+          <label class="form-field"><span>Email</span><input type="email" value="laura@example.test" /></label>
+          <label class="form-field"><span>Telephone</span><input value="07700 900 188" /></label>
+          <label class="form-field"><span>First farm / site</span><input value="Meadowbrook Farm" /></label>
+          <label class="form-field"><span>Postcode</span><input value="BA7 8AA" /></label>
+          <label class="form-field form-field--wide"><span>Account note</span><textarea rows="3">New autumn sampling enquiry. Customer wants baseline analysis across the home farm.</textarea></label>
+        </div>
+        <div class="order-summary"><span class="ai-spark">C</span><div><strong>What happens next</strong><p>The customer and first farm are created now. Operations then validates boundaries, fields and sampling areas.</p></div></div>
+        <footer class="modal__footer"><span class="preserved-note">Demo information remains in this browser session only.</span><button class="secondary-button" value="cancel">Cancel</button><button class="primary-button" type="submit">Add customer</button></footer>
+      </form>
+    </dialog>
+
+    <dialog class="modal assignment-modal" id="area-modal">
+      <form method="dialog" class="modal__surface" id="area-form">
+        <header class="modal__header"><div><span class="eyebrow">Farms & areas · Geographic setup</span><h2>Define sampling area</h2><p>Add a field, management zone or custom sampling block beneath a farm.</p></div><button class="icon-button" value="cancel" aria-label="Close">×</button></header>
+        <div class="area-editor">
+          <div class="area-editor__form">
+            <label class="form-field"><span>Customer</span><select><option selected>Green Estate</option><option>Smith & Sons</option><option>Brown Farming Ltd</option></select></label>
+            <label class="form-field"><span>Farm / site</span><select><option selected>Home Farm</option><option>East Meadow</option><option>North Holding</option></select></label>
+            <label class="form-field"><span>Area name</span><input id="new-area-name" required value="South Paddock" /></label>
+            <label class="form-field"><span>Area type</span><select><option selected>Field</option><option>Management zone</option><option>Custom sampling block</option></select></label>
+            <label class="form-field"><span>Area size</span><input type="number" value="12.6" step="0.1" /></label>
+            <label class="form-field"><span>Units</span><select><option selected>Hectares</option><option>Acres</option></select></label>
+            <label class="form-field form-field--wide"><span>Sampling design</span><select><option selected>Grid · 1 sample per 2 hectares</option><option>Zone-based sampling</option><option>Custom plan</option></select></label>
+          </div>
+          <div class="boundary-editor"><div class="boundary-shape"><span>South Paddock<br><small>12.6 ha · boundary preview</small></span></div><div class="boundary-tools"><button type="button" class="is-active">Draw boundary</button><button type="button">Upload shape</button><button type="button">Use existing</button></div><p>Stakeholder demo: the production system would support mapped boundaries, imports and area hierarchy.</p></div>
+        </div>
+        <footer class="modal__footer"><span class="preserved-note">Area remains linked to customer → farm → field/zone hierarchy.</span><button class="secondary-button" value="cancel">Cancel</button><button class="primary-button" type="submit">Save area</button></footer>
+      </form>
+    </dialog>
+
+    <script src="app.js?v=3"></script>
+  </body>
+</html>
