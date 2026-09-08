@@ -12,6 +12,7 @@ const state = {
   labScanned: false,
   linerTransferred: false,
   aggregationComplete: false,
+  resultUploaded: false,
 };
 
 const roles = {
@@ -58,8 +59,8 @@ const roles = {
     initials: "MP",
     accent: "#aa5a45",
     nav: [
-      ["overview", "⇩", "Incoming Samples", 12], ["aggregations", "A", "Aggregations", 3],
-      ["tests", "T", "Tests", 18], ["results", "R", "Results"], ["exceptions", "!", "Exceptions", 2],
+      ["overview", "O", "Active Orders", 3], ["receiving", "⇩", "Receiving", 12],
+      ["aggregations", "A", "Aggregations", 3], ["results", "R", "Results"], ["exceptions", "!", "Exceptions", 2],
     ],
   },
 };
@@ -291,31 +292,37 @@ function financeOrders() {
 }
 
 function labOverview() {
-  const scanPanel = state.labScanned ? `
-    <div class="lab-scan-result">
-      <div class="lab-sample-primary"><small>Resolved S2L Sample ID</small><strong>S8271</strong><span>Green Estate · East Meadow · Zone 3</span></div>
-      <div class="lab-secondary-ids"><span><small>Physical holder</small><strong>${state.linerTransferred ? "Liner L8271" : "Pod P1042"}</strong></span><span><small>Case record</small><strong>CASE07-000184</strong></span><button class="text-button">Technical details</button></div>
-      ${state.linerTransferred ? `<div class="lab-success">✓ Transfer recorded · Sample S8271 keeps the same identity</div>` : `<button class="primary-button full-width lab-touch-button" data-action="lab-transfer">Transfer to liner</button>`}
-    </div>` : `<div class="lab-scanner-ready"><span class="scanner-icon">▦</span><strong>Scanner ready</strong><p>Scan a pod or liner QR. The station resolves it automatically to the S2L Sample ID.</p><button class="primary-button lab-touch-button" data-action="lab-scan">Simulate scan</button></div>`;
+  const scanPanel = state.labScanned ? `<div class="lab-order-context"><div class="lab-order-heading"><div><small>Pod P1042 resolved to Active Order</small><strong>SO-1046 · Green Estate</strong><span>Autumn Soil Analysis · North Block</span></div>${status("Receiving","blue")}</div><div class="lab-receipt-progress"><span><small>Received</small><strong>7 / 10</strong></span>${progress(70,"3 samples still expected")}</div><div class="lab-order-detail-grid"><div><small>Latest Sample</small><strong>S8271</strong><span>Pod ID stays secondary</span></div><div><small>Requested tests</small><strong>P, K, Mg, pH</strong><span>Order-defined</span></div><div><small>Aggregation</small><strong>North Block · 2 / 3</strong><span>Awaiting S8310</span></div><div><small>Reporting Area</small><strong>North Block</strong><span>From SO-1046</span></div></div><button class="primary-button full-width lab-touch-button" data-action="lab-open-receiving">Open receiving details</button></div>` : `<div class="lab-scanner-ready"><span class="scanner-icon">▦</span><strong>Scan the first pod</strong><p>The pod QR resolves the Sample and opens its Order automatically. No manual search is required.</p><button class="primary-button lab-touch-button" data-action="lab-scan">Simulate pod scan</button></div>`;
 
-  return `${pageHeader("Laboratory · Receiving station", "Incoming samples", "Receive samples without choosing between pod, liner, RFID or internal identifiers.", `<button class="secondary-button">Print labels</button><button class="primary-button" data-action="lab-scan">Scan sample</button>`)}
-    <section class="kpi-grid compact-kpis">${kpi("Arrived today", "42", "12 waiting to receive", "#3979a8")}${kpi("Received", "30", "All identities resolved", "#7bbf45")}${kpi("Prep required", "8", "3 aggregations", "#e9a13b")}${kpi("Exceptions", "2", "1 unmatched scan", "#c8534d")}</section>
-    <section class="lab-layout"><div class="panel lab-station"><header class="panel__header"><div><h2>Lab Station</h2><p>Touchscreen · 2D scanner · label printer</p></div>${status(state.labScanned ? "Sample resolved" : "Ready","green")}</header><div class="panel__body">${scanPanel}</div></div>
-    <div class="panel"><header class="panel__header"><div><h2>Receiving queue</h2><p>Sample ID remains the primary handling reference</p></div><span class="tag blue">12 waiting</span></header><div class="table-wrap"><table class="data-table"><thead><tr><th>Sample</th><th>Origin</th><th>Holder</th><th>Next step</th></tr></thead><tbody>
-      <tr><td><div class="cell-title"><strong>S8271</strong><small>Arrived 10:48</small></div></td><td><div class="cell-title"><strong>Green Estate</strong><small>East Meadow · Zone 3</small></div></td><td><div class="cell-title"><strong>${state.linerTransferred ? "Liner L8271" : "Pod P1042"}</strong><small>Secondary custody ID</small></div></td><td>${status(state.linerTransferred ? "Ready for prep" : "Transfer to liner",state.linerTransferred ? "green" : "amber")}</td></tr>
-      <tr><td><div class="cell-title"><strong>S8269</strong><small>Arrived 10:31</small></div></td><td><div class="cell-title"><strong>Smith & Sons</strong><small>North Field · Zone 2</small></div></td><td><div class="cell-title"><strong>Liner L8269</strong><small>Secondary custody ID</small></div></td><td>${status("Test queue","blue")}</td></tr>
-      <tr><td><div class="cell-title"><strong>S8268</strong><small>Arrived 10:26</small></div></td><td><div class="cell-title"><strong>Brown Farming Ltd</strong><small>West Block · Zone 1</small></div></td><td><div class="cell-title"><strong>Pod P1038</strong><small>Secondary custody ID</small></div></td><td>${status("Aggregation AG-018","amber")}</td></tr>
+  return `${pageHeader("Laboratory · Order-driven workspace", "Active laboratory orders", "The first valid pod scan activates the Order and reveals expected samples, tests, aggregation instructions and reporting Areas.", `<button class="secondary-button">Print labels</button><button class="primary-button" data-action="lab-scan">Scan pod</button>`)}
+    <section class="kpi-grid compact-kpis">${kpi("Active orders", state.labScanned ? "4" : "3", state.labScanned ? "SO-1046 opened by scan" : "Laboratory work outstanding", "#3979a8")}${kpi("Expected samples", "42", "30 received", "#7bbf45")}${kpi("Prep required", "8", "3 aggregations", "#e9a13b")}${kpi("Exceptions", "2", "1 unmatched pod", "#c8534d")}</section>
+    <section class="lab-layout"><div class="panel lab-station"><header class="panel__header"><div><h2>Lab Station</h2><p>Pod scan → Sample → Order context</p></div>${status(state.labScanned ? "Order opened" : "Scanner ready","green")}</header><div class="panel__body">${scanPanel}</div></div>
+    <div class="panel"><header class="panel__header"><div><h2>Active Orders</h2><p>Orders with physical arrivals and outstanding laboratory work</p></div><span class="tag blue">${state.labScanned ? "4 active" : "3 active"}</span></header><div class="table-wrap"><table class="data-table"><thead><tr><th>Order</th><th>Receipt</th><th>Tests / prep</th><th>Status</th></tr></thead><tbody>
+      ${state.labScanned ? `<tr class="new-row"><td><div class="cell-title"><strong>SO-1046 · Green Estate</strong><small>Activated by Pod P1042 scan</small></div></td><td>${progress(70,"7 / 10 received")}</td><td><div class="cell-title"><strong>P, K, Mg, pH</strong><small>Aggregation North Block · 2 / 3</small></div></td><td>${status("Receiving","blue")}</td></tr>` : ""}
+      <tr><td><div class="cell-title"><strong>SO-1042 · Smith & Sons</strong><small>Precision Nutrient Plan</small></div></td><td>${progress(100,"10 / 10 received")}</td><td><div class="cell-title"><strong>Standard nutrient suite</strong><small>No aggregation</small></div></td><td>${status("Testing","green")}</td></tr>
+      <tr><td><div class="cell-title"><strong>SO-1038 · Hilltop Partnership</strong><small>Soil Carbon Baseline</small></div></td><td>${progress(100,"8 / 8 received")}</td><td><div class="cell-title"><strong>Carbon baseline</strong><small>Results file expected</small></div></td><td>${status("Results due","amber")}</td></tr>
     </tbody></table></div></div></section>`;
 }
 
+function labReceiving() {
+  return `${pageHeader("Laboratory · SO-1046", "Receiving details", "Each pod scan updates Order progress while keeping the S2L Sample ID prominent.", `<button class="secondary-button">Print liner label</button><button class="primary-button" data-action="lab-scan">Scan next pod</button>`)}
+    <section class="lab-layout"><div class="panel lab-station"><header class="panel__header"><div><h2>Latest resolved sample</h2><p>SO-1046 · 7 of 10 received</p></div>${status("Received","green")}</header><div class="panel__body"><div class="lab-scan-result"><div class="lab-sample-primary"><small>Resolved S2L Sample ID</small><strong>S8271</strong><span>Green Estate · East Meadow · Zone 3</span></div><div class="lab-secondary-ids"><span><small>Physical holder</small><strong>${state.linerTransferred ? "Liner L8271" : "Pod P1042"}</strong></span><span><small>Case record</small><strong>CASE07-000184</strong></span><button class="text-button">Technical details</button></div>${state.linerTransferred ? `<div class="lab-success">✓ Transfer recorded · Sample S8271 keeps the same identity</div>` : `<button class="primary-button full-width lab-touch-button" data-action="lab-transfer">Transfer to liner</button>`}</div></div></div>
+    <div class="panel"><header class="panel__header"><div><h2>Expected samples</h2><p>Order SO-1046 · receipt inferred from pod scans</p></div><span class="tag blue">7 / 10 received</span></header><div class="table-wrap"><table class="data-table"><thead><tr><th>Sample</th><th>Area</th><th>Holder</th><th>Receipt</th></tr></thead><tbody><tr><td><strong>S8271</strong></td><td>East Meadow · Zone 3</td><td>${state.linerTransferred ? "Liner L8271" : "Pod P1042"}</td><td>${status("Received","green")}</td></tr><tr><td><strong>S8310</strong></td><td>North Block · Zone 3</td><td>Expected pod</td><td>${status("Awaiting arrival","amber")}</td></tr><tr><td><strong>S8311</strong></td><td>Home Close · Zone 1</td><td>Expected pod</td><td>${status("Awaiting arrival","amber")}</td></tr></tbody></table></div></div></section>`;
+}
+
 function labAggregations() {
-  return `${pageHeader("Laboratory · Sample preparation", "Aggregations", "Scan the required source samples and confirm one auditable preparation step.", `<button class="secondary-button">Preparation guide</button><button class="primary-button" data-action="lab-aggregate">Confirm aggregation</button>`)}
-    <section class="lab-layout"><div class="panel"><header class="panel__header"><div><h2>AG-018 · North Block</h2><p>Reporting Area · Green Estate</p></div>${status(state.aggregationComplete ? "Complete" : "Ready to combine",state.aggregationComplete ? "green" : "amber")}</header><div class="panel__body"><div class="aggregation-sources">
+  return `${pageHeader("Laboratory · Order SO-1046", "Aggregations", "The Order supplies the source samples, requested test and reporting Area.", `<button class="secondary-button">Preparation guide</button><button class="primary-button" data-action="lab-aggregate">Confirm aggregation</button>`)}
+    <section class="lab-layout"><div class="panel"><header class="panel__header"><div><h2>AG-018 · North Block</h2><p>SO-1046 · P, K, Mg, pH · Reporting Area: North Block</p></div>${status(state.aggregationComplete ? "Complete" : "Ready to combine",state.aggregationComplete ? "green" : "amber")}</header><div class="panel__body"><div class="aggregation-sources">
       <article><span>✓</span><div><strong>S8271</strong><small>Zone 1 · 421 g available</small></div></article>
       <article><span>✓</span><div><strong>S8292</strong><small>Zone 2 · 438 g available</small></div></article>
       <article><span>✓</span><div><strong>S8310</strong><small>Zone 3 · 416 g available</small></div></article>
     </div>${state.aggregationComplete ? `<div class="lab-success">✓ Aggregation AG-018 recorded · source Sample IDs retained</div>` : `<button class="primary-button full-width lab-touch-button" data-action="lab-aggregate">Confirm aggregation complete</button>`}</div></div>
     <aside class="panel"><header class="panel__header"><div><h2>Identity rule</h2><p>Simple handling, complete custody</p></div></header><div class="panel__body"><div class="identity-rule-card"><strong>Show first</strong><span class="sample-id-example">Sample S8271</span><p>Pod, liner, RFID UID, QR payload and internal UUID remain available only in details and audit views.</p></div><div class="readiness-checklist"><strong>Preparation evidence</strong><span>✓ Three source samples scanned</span><span>✓ Reporting Area confirmed</span><span>✓ Operator and station recorded</span><span>${state.aggregationComplete ? "✓ Completion timestamp saved" : "○ Awaiting confirmation"}</span></div></div></aside></section>`;
+}
+
+function labResults() {
+  return `${pageHeader("Laboratory · Active Order", "Upload result", "Attach the laboratory result file to the Order; S2L retains it and matches individual results where supported.", `<button class="secondary-button">View result history</button><button class="primary-button" data-action="lab-upload">Upload result</button>`)}
+    <section class="lab-layout"><div class="panel"><header class="panel__header"><div><h2>SO-1046 · Green Estate</h2><p>Autumn Soil Analysis · North Block</p></div>${status(state.resultUploaded ? "File received" : "Awaiting result","amber")}</header><div class="panel__body"><div class="result-upload-card"><span>CSV</span><div><strong>${state.resultUploaded ? "SO-1046-results.csv" : "Upload the file produced by the laboratory"}</strong><p>${state.resultUploaded ? "Retained against SO-1046 · parsing and Sample matching queued" : "The Order already supplies the intended tests, reporting Area and aggregation relationships."}</p></div></div>${state.resultUploaded ? `<div class="lab-success">✓ Result file retained against SO-1046 · 10 Sample matches proposed</div>` : `<button class="primary-button full-width lab-touch-button" data-action="lab-upload">Choose and upload result file</button>`}</div></div><aside class="panel"><header class="panel__header"><div><h2>Order context</h2><p>No relationships need to be recreated</p></div></header><div class="panel__body"><div class="readiness-checklist"><strong>Inherited from SO-1046</strong><span>✓ Requested tests: P, K, Mg, pH</span><span>✓ Reporting Area: North Block</span><span>✓ Aggregation AG-018</span><span>✓ Expected Samples: 10</span></div></div></aside></section>`;
 }
 
 function genericView() {
@@ -349,7 +356,9 @@ function render() {
   else if (state.role === "finance" && state.view === "ready") main.innerHTML = financeReady();
   else if (state.role === "finance" && state.view === "orders") main.innerHTML = financeOrders();
   else if (state.role === "lab" && state.view === "overview") main.innerHTML = labOverview();
+  else if (state.role === "lab" && state.view === "receiving") main.innerHTML = labReceiving();
   else if (state.role === "lab" && state.view === "aggregations") main.innerHTML = labAggregations();
+  else if (state.role === "lab" && state.view === "results") main.innerHTML = labResults();
   else main.innerHTML = genericView();
   main.focus({ preventScroll: true });
 }
@@ -401,9 +410,11 @@ main.addEventListener("click", event => {
     showToast("SC-008 updates through normal synchronisation; it is not remotely opened or controlled from the web platform.");
   }
   if (action === "invoice-batch") showToast("Draft invoice batch created for Finance review.");
-  if (action === "lab-scan") { state.labScanned = true; render(); showToast("QR resolved automatically to Sample S8271."); }
+  if (action === "lab-scan") { state.labScanned = true; state.view = "overview"; render(); showToast("Pod P1042 resolved to Sample S8271 and Active Order SO-1046."); }
+  if (action === "lab-open-receiving") { state.view = "receiving"; render(); }
   if (action === "lab-transfer") { state.linerTransferred = true; render(); showToast("Transfer recorded · Sample S8271 now held in Liner L8271."); }
   if (action === "lab-aggregate") { state.aggregationComplete = true; render(); showToast("Aggregation AG-018 completed with source identities retained."); }
+  if (action === "lab-upload") { state.resultUploaded = true; render(); showToast("Result file retained against SO-1046 and queued for matching."); }
 });
 
 document.querySelector("#menu-button").addEventListener("click", () => document.querySelector(".sidebar").classList.toggle("is-open"));
