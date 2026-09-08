@@ -9,6 +9,9 @@ const state = {
   smartCaseOpened: false,
   customerAdded: false,
   areaAdded: false,
+  labScanned: false,
+  linerTransferred: false,
+  aggregationComplete: false,
 };
 
 const roles = {
@@ -47,6 +50,16 @@ const roles = {
     nav: [
       ["overview", "⌂", "Overview"], ["ready", "✓", "Ready to invoice", 8], ["orders", "O", "Orders"],
       ["exceptions", "!", "Exceptions", 3], ["customers", "C", "Customers"],
+    ],
+  },
+  lab: {
+    name: "Maya Patel",
+    title: "Laboratory Technician",
+    initials: "MP",
+    accent: "#aa5a45",
+    nav: [
+      ["overview", "⇩", "Incoming Samples", 12], ["aggregations", "A", "Aggregations", 3],
+      ["tests", "T", "Tests", 18], ["results", "R", "Results"], ["exceptions", "!", "Exceptions", 2],
     ],
   },
 };
@@ -277,6 +290,34 @@ function financeOrders() {
     </tbody></table></div></div>`;
 }
 
+function labOverview() {
+  const scanPanel = state.labScanned ? `
+    <div class="lab-scan-result">
+      <div class="lab-sample-primary"><small>Resolved S2L Sample ID</small><strong>S8271</strong><span>Green Estate · East Meadow · Zone 3</span></div>
+      <div class="lab-secondary-ids"><span><small>Physical holder</small><strong>${state.linerTransferred ? "Liner L8271" : "Pod P1042"}</strong></span><span><small>Case record</small><strong>CASE07-000184</strong></span><button class="text-button">Technical details</button></div>
+      ${state.linerTransferred ? `<div class="lab-success">✓ Transfer recorded · Sample S8271 keeps the same identity</div>` : `<button class="primary-button full-width lab-touch-button" data-action="lab-transfer">Transfer to liner</button>`}
+    </div>` : `<div class="lab-scanner-ready"><span class="scanner-icon">▦</span><strong>Scanner ready</strong><p>Scan a pod or liner QR. The station resolves it automatically to the S2L Sample ID.</p><button class="primary-button lab-touch-button" data-action="lab-scan">Simulate scan</button></div>`;
+
+  return `${pageHeader("Laboratory · Receiving station", "Incoming samples", "Receive samples without choosing between pod, liner, RFID or internal identifiers.", `<button class="secondary-button">Print labels</button><button class="primary-button" data-action="lab-scan">Scan sample</button>`)}
+    <section class="kpi-grid compact-kpis">${kpi("Arrived today", "42", "12 waiting to receive", "#3979a8")}${kpi("Received", "30", "All identities resolved", "#7bbf45")}${kpi("Prep required", "8", "3 aggregations", "#e9a13b")}${kpi("Exceptions", "2", "1 unmatched scan", "#c8534d")}</section>
+    <section class="lab-layout"><div class="panel lab-station"><header class="panel__header"><div><h2>Lab Station</h2><p>Touchscreen · 2D scanner · label printer</p></div>${status(state.labScanned ? "Sample resolved" : "Ready","green")}</header><div class="panel__body">${scanPanel}</div></div>
+    <div class="panel"><header class="panel__header"><div><h2>Receiving queue</h2><p>Sample ID remains the primary handling reference</p></div><span class="tag blue">12 waiting</span></header><div class="table-wrap"><table class="data-table"><thead><tr><th>Sample</th><th>Origin</th><th>Holder</th><th>Next step</th></tr></thead><tbody>
+      <tr><td><div class="cell-title"><strong>S8271</strong><small>Arrived 10:48</small></div></td><td><div class="cell-title"><strong>Green Estate</strong><small>East Meadow · Zone 3</small></div></td><td><div class="cell-title"><strong>${state.linerTransferred ? "Liner L8271" : "Pod P1042"}</strong><small>Secondary custody ID</small></div></td><td>${status(state.linerTransferred ? "Ready for prep" : "Transfer to liner",state.linerTransferred ? "green" : "amber")}</td></tr>
+      <tr><td><div class="cell-title"><strong>S8269</strong><small>Arrived 10:31</small></div></td><td><div class="cell-title"><strong>Smith & Sons</strong><small>North Field · Zone 2</small></div></td><td><div class="cell-title"><strong>Liner L8269</strong><small>Secondary custody ID</small></div></td><td>${status("Test queue","blue")}</td></tr>
+      <tr><td><div class="cell-title"><strong>S8268</strong><small>Arrived 10:26</small></div></td><td><div class="cell-title"><strong>Brown Farming Ltd</strong><small>West Block · Zone 1</small></div></td><td><div class="cell-title"><strong>Pod P1038</strong><small>Secondary custody ID</small></div></td><td>${status("Aggregation AG-018","amber")}</td></tr>
+    </tbody></table></div></div></section>`;
+}
+
+function labAggregations() {
+  return `${pageHeader("Laboratory · Sample preparation", "Aggregations", "Scan the required source samples and confirm one auditable preparation step.", `<button class="secondary-button">Preparation guide</button><button class="primary-button" data-action="lab-aggregate">Confirm aggregation</button>`)}
+    <section class="lab-layout"><div class="panel"><header class="panel__header"><div><h2>AG-018 · North Block</h2><p>Reporting Area · Green Estate</p></div>${status(state.aggregationComplete ? "Complete" : "Ready to combine",state.aggregationComplete ? "green" : "amber")}</header><div class="panel__body"><div class="aggregation-sources">
+      <article><span>✓</span><div><strong>S8271</strong><small>Zone 1 · 421 g available</small></div></article>
+      <article><span>✓</span><div><strong>S8292</strong><small>Zone 2 · 438 g available</small></div></article>
+      <article><span>✓</span><div><strong>S8310</strong><small>Zone 3 · 416 g available</small></div></article>
+    </div>${state.aggregationComplete ? `<div class="lab-success">✓ Aggregation AG-018 recorded · source Sample IDs retained</div>` : `<button class="primary-button full-width lab-touch-button" data-action="lab-aggregate">Confirm aggregation complete</button>`}</div></div>
+    <aside class="panel"><header class="panel__header"><div><h2>Identity rule</h2><p>Simple handling, complete custody</p></div></header><div class="panel__body"><div class="identity-rule-card"><strong>Show first</strong><span class="sample-id-example">Sample S8271</span><p>Pod, liner, RFID UID, QR payload and internal UUID remain available only in details and audit views.</p></div><div class="readiness-checklist"><strong>Preparation evidence</strong><span>✓ Three source samples scanned</span><span>✓ Reporting Area confirmed</span><span>✓ Operator and station recorded</span><span>${state.aggregationComplete ? "✓ Completion timestamp saved" : "○ Awaiting confirmation"}</span></div></div></aside></section>`;
+}
+
 function genericView() {
   const role = roles[state.role];
   const item = role.nav.find(entry => entry[0] === state.view);
@@ -307,6 +348,8 @@ function render() {
   else if (state.role === "finance" && state.view === "overview") main.innerHTML = financeOverview();
   else if (state.role === "finance" && state.view === "ready") main.innerHTML = financeReady();
   else if (state.role === "finance" && state.view === "orders") main.innerHTML = financeOrders();
+  else if (state.role === "lab" && state.view === "overview") main.innerHTML = labOverview();
+  else if (state.role === "lab" && state.view === "aggregations") main.innerHTML = labAggregations();
   else main.innerHTML = genericView();
   main.focus({ preventScroll: true });
 }
@@ -358,6 +401,9 @@ main.addEventListener("click", event => {
     showToast("SC-008 updates through normal synchronisation; it is not remotely opened or controlled from the web platform.");
   }
   if (action === "invoice-batch") showToast("Draft invoice batch created for Finance review.");
+  if (action === "lab-scan") { state.labScanned = true; render(); showToast("QR resolved automatically to Sample S8271."); }
+  if (action === "lab-transfer") { state.linerTransferred = true; render(); showToast("Transfer recorded · Sample S8271 now held in Liner L8271."); }
+  if (action === "lab-aggregate") { state.aggregationComplete = true; render(); showToast("Aggregation AG-018 completed with source identities retained."); }
 });
 
 document.querySelector("#menu-button").addEventListener("click", () => document.querySelector(".sidebar").classList.toggle("is-open"));
