@@ -237,7 +237,7 @@ function operatorOverview() {
       <div class="job-progress"><strong>48 / 75 samples</strong><div class="progress-track"><span style="width:64%"></span></div><small>64%</small></div>
       ${state.noteSaved ? `<div class="site-alert"><span class="site-alert__icon">!</span><div><strong>Flooding reported · work blocked</strong><p>Your note, transcript and photo were shared with Operations and Sales. Thursday return is awaiting access confirmation.</p></div></div>` : `<div class="site-alert"><span class="site-alert__icon">!</span><div><strong>Site conditions may affect access</strong><p>Heavy overnight rain is forecast. Use Add note to report a delay, farmer conversation, photo or other site evidence.</p></div></div>`}
       <div class="job-details"><div class="job-detail"><small>Contact</small><strong>Tom Green<br>07700 900 142</strong></div><div class="job-detail"><small>Instructions</small><strong>Call on arrival<br>Use east gate</strong></div><div class="job-detail"><small>Fields</small><strong>5 total<br>2 remaining</strong></div></div>
-      <div class="smart-case-handoff ${state.smartCaseOpened ? "is-ready" : ""}"><span class="smart-case-icon">SC</span><div><strong>${state.smartCaseOpened ? "JOB-143 is ready on Smart Case SC-008" : "Continue this job on Smart Case SC-008"}</strong><p>${state.smartCaseOpened ? "The map, field boundaries and remaining 27-sample plan are available offline." : "Sends the job map, fields, instructions and sample plan to your assigned field device."}</p></div><button class="primary-button" data-action="smart-case">${state.smartCaseOpened ? "Resume sampling" : "Send & open"}</button></div>
+      <div class="smart-case-handoff is-ready"><span class="smart-case-icon">SC</span><div><strong>Allocated Smart Case · SC-008</strong><p>Last synced 07:42 · Assignment available at last sync: Yes. The case continues from its last valid local data if signal is lost.</p></div><button class="secondary-button" data-action="smart-case">About sync</button></div>
       <div class="job-actions"><button class="secondary-button">View route</button><button class="secondary-button" data-action="note">Add note</button></div>
     </article></div>
     <div class="panel"><header class="panel__header"><div><h2>Later today</h2><p>Your next assigned job</p></div></header><div class="panel__body"><div class="attention-item">${iconBadge("2")}<div><strong>Manor Farm · JOB-147</strong><small>14:30 · 18 samples · Manual auger · 26 min from Green Estate</small></div>${status("Assigned","grey")}</div></div></div></div>
@@ -355,9 +355,7 @@ main.addEventListener("click", event => {
   if (action === "add-customer") customerModal.showModal();
   if (action === "add-area") areaModal.showModal();
   if (action === "smart-case") {
-    state.smartCaseOpened = true;
-    render();
-    showToast("JOB-143 sent to Smart Case SC-008 and available offline.");
+    showToast("SC-008 updates through normal synchronisation; it is not remotely opened or controlled from the web platform.");
   }
   if (action === "invoice-batch") showToast("Draft invoice batch created for Finance review.");
 });
