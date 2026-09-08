@@ -10,5 +10,6 @@ Open `index.html` in any modern browser. No installation, build step, server, or
 4. Switch to **Operator** and show the allocated Smart Case plus its last-synchronised state, then demonstrate typed, voice, and photo/file notes plus AI classification.
 5. Save the flooding note, return to Green Estate, and show the shared customer timeline update.
 6. Switch to **Finance / Admin → Ready to invoice / Orders** to show batch creation and why the affected order is not yet invoice-ready.
+7. Switch to **Laboratory → Incoming Samples / Aggregations** to scan a pod or liner, resolve it to the prominent S2L Sample ID, transfer material to a liner without changing sample identity, and confirm aggregation `AG-018`.
 
 All information is fictional and held only in browser memory for the current page session.
