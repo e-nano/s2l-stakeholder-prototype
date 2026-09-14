@@ -1,15 +1,35 @@
 const state = {
-  role: "sales",
+  role: "all_user",
   view: "overview",
   assignedOperator: null,
   noteSaved: false,
-  selectedOperator: "sarah",
+  interactionSaved: false,
+  customerActivityView: "timeline",
+  selectedOperator: "alex",
   customerDetail: null,
   workOrderCreated: false,
   smartCaseOpened: false,
   customerAdded: false,
   areaAdded: false,
   boundaryPublished: false,
+  orderAreaSelection: "north-field",
+  orderSubareaSaved: false,
+  orderSubareaApproved: false,
+  orderSubareaRequestedBy: null,
+  orderPreparationRole: "farmer",
+  sarahPlanningGranted: false,
+  sarahDisplayTitle: "Field Technician",
+  sarahBranch: "Operations · North",
+  notificationPreferences: {
+    orders: true,
+    assignment: true,
+    sampling: false,
+    logistics: true,
+    lab: false,
+    reports: true,
+    commercial: false,
+    exceptions: true,
+  },
   portalOrderSubmitted: false,
   paymentPaid: false,
   farmerLoggedIn: false,
@@ -32,6 +52,7 @@ const state = {
   returnCarrierDelivered: false,
   returnPodsReceived: false,
   phoneProfiles: {
+    all_user: { number: "+44 7700 900 101", verified: true, alerts: true, verifiedAt: "14 Sep 2026" },
     sales: { number: "+44 7700 900 141", verified: true, alerts: true, verifiedAt: "12 Aug 2026" },
     sales_manager: { number: "+44 7700 900 131", verified: true, alerts: true, verifiedAt: "4 Jul 2026" },
     manager: { number: "+44 7700 900 151", verified: true, alerts: true, verifiedAt: "19 Aug 2026" },
@@ -50,14 +71,14 @@ const state = {
   notifications: [
     {
       id: "order-so-1054-submitted",
-      audience: "manager",
+      audience: "all_user",
       type: "order",
       reference: "SO-1054",
       title: "New sales-assisted order",
       customer: "Westcombe Farms",
       detail: "Autumn soil analysis · 4 fields · requested 18 Sep",
       readiness: "Ready for planning review",
-      source: "Sales-assisted",
+      source: "Assigned order responsibility",
       time: "Today · 08:36",
       smsStatus: "delivered",
       read: false,
@@ -73,7 +94,7 @@ const state = {
       customer: "Manor Farm",
       detail: "South Field · today 14:30 · assigned by Daniel Wright",
       readiness: "Assigned · not yet started",
-      source: "Sampling Manager",
+      source: "Explicit work assignment",
       time: "Yesterday · 16:20",
       smsStatus: "delivered",
       read: false,
@@ -89,9 +110,8 @@ const state = {
       customer: "Oakridge Farm",
       detail: "Access question · no eligible representative assigned",
       readiness: "Fallback queue · assign a representative",
-      source: "Farmer portal",
+      source: "Customer portal · web only",
       time: "Today · 08:12",
-      smsStatus: "missing",
       read: false,
       actionLabel: "Open support request",
     },
@@ -99,9 +119,24 @@ const state = {
 };
 
 const roles = {
+  all_user: {
+    name: "Alex Morgan",
+    title: "Regional Field Lead · display only",
+    initials: "AM",
+    accent: "#215b47",
+    master: true,
+    actions: ["customers", "commercial", "areas", "orders", "planning", "sampling", "logistics", "reports", "support", "finance", "access"],
+    scope: "S2L Demo Organisation · all non-laboratory records",
+    nav: [
+      ["overview", "⌂", "My work"], ["commercial", "C", "Customers & commercial"], ["orders", "O", "Areas & orders"],
+      ["operations", "P", "Operations"], ["fieldwork", "F", "Field work"], ["dispatch", "↔", "Shipments & returns", 1],
+      ["reports-support", "R", "Reports & support"], ["commercial-status", "£", "Commercial status"],
+      ["preferences", "N", "Notification settings"], ["access", "U", "Users, hierarchy & permissions"],
+    ],
+  },
   sales: {
     name: "Emma Clarke",
-    title: "Regional Account Manager",
+    title: "Customer Adviser · display only",
     initials: "EC",
     accent: "#b46546",
     nav: [
@@ -133,7 +168,7 @@ const roles = {
   },
   operator: {
     name: "Sarah Lewis",
-    title: "Field Operator",
+    title: "Field Technician · display only",
     initials: "SL",
     accent: "#467847",
     nav: [["overview", "⌂", "My day"], ["jobs", "J", "My jobs", 3], ["dispatch", "⇧", "Dispatch & collections", 1], ["shipments", "↔", "My shipments"], ["notes", "N", "Field notes"]],
@@ -180,8 +215,27 @@ const roles = {
   },
 };
 
+const actorGrants = {
+  all_user: ["customers", "commercial", "areas", "orders", "planning", "assign", "sampling", "notes", "logistics", "reports", "support", "finance", "notifications", "access"],
+  sales: ["customers", "commercial", "areas:view", "orders:prepare", "orders:submit", "quotes:view:organisation", "quotes:edit:own", "support:respond", "notifications"],
+  operator: ["work:assigned", "sampling", "notes", "sync", "logistics:prepare", "notifications"],
+  lab: ["lab:receive", "lab:handle", "lab:report", "lab:return", "notifications"],
+  farmer: ["orders:self", "areas:view:self", "reports:self", "support:request", "payments:self", "notifications"],
+};
+
+function effectiveActions(actor = state.role) {
+  const actions = [...(actorGrants[actor] || [])];
+  if (actor === "operator" && state.sarahPlanningGranted) actions.push("planning", "assign");
+  return actions;
+}
+
+function hasAction(action) {
+  return effectiveActions().some(grant => grant === action || grant.startsWith(`${action}:`) || action.startsWith(`${grant}:`));
+}
+
 const operators = [
-  { id: "sarah", initials: "SL", name: "Sarah Lewis", distance: "23 min away", workload: "4.5h workload", kit: "Corer-12 · ATV-04 · SC-008", skill: "Powered corer · 0–300 mm", fit: "92% fit", outcome: "96% first-time completion", recommended: true },
+  { id: "alex", initials: "AM", name: "Alex Morgan", distance: "Self assignment", workload: "3.5h workload", kit: "Corer-12 · ATV-04 · SC-008", skill: "Powered corer · 0–300 mm", fit: "96% fit", outcome: "Eligible non-lab user", recommended: true },
+  { id: "sarah", initials: "SL", name: "Sarah Lewis", distance: "23 min away", workload: "4.5h workload", kit: "Corer-12 · ATV-04 · SC-008", skill: "Powered corer · 0–300 mm", fit: "92% fit", outcome: "96% first-time completion" },
   { id: "james", initials: "JM", name: "James Morgan", distance: "51 min away", workload: "6.0h workload", kit: "Corer-07 · ATV-02 · SC-014", skill: "Powered corer · 0–250 mm", fit: "76% fit", outcome: "91% first-time completion" },
   { id: "pedro", initials: "PR", name: "Pedro Ruiz", distance: "31 min away", workload: "Unavailable after 14:00", kit: "Manual auger · Van-09 · SC-011", skill: "Manual methods only", fit: "48% fit", outcome: "94% first-time completion" },
 ];
@@ -190,10 +244,12 @@ const main = document.querySelector("#main-content");
 const nav = document.querySelector("#primary-nav");
 const roleSelect = document.querySelector("#role-select");
 const noteModal = document.querySelector("#note-modal");
+const interactionModal = document.querySelector("#interaction-modal");
 const assignmentModal = document.querySelector("#assignment-modal");
 const workOrderModal = document.querySelector("#work-order-modal");
 const customerModal = document.querySelector("#customer-modal");
 const areaModal = document.querySelector("#area-modal");
+const subareaModal = document.querySelector("#subarea-modal");
 const noteFab = document.querySelector("#operator-note-fab");
 const toast = document.querySelector("#toast");
 const userProfileButton = document.querySelector("#user-profile-button");
@@ -215,16 +271,23 @@ function addNotification(notification) {
 }
 
 function notificationsForCurrentRole() {
-  return state.notifications.filter(notification => {
+  const eligible = state.notifications.filter(notification => {
+    if (state.role === "all_user") {
+      if (["farmer", "lab"].includes(notification.audience)) return false;
+      if (notification.assignee && notification.assignee !== roles.all_user.name) return false;
+      return true;
+    }
     if (notification.audience !== state.role) return false;
     if (state.role === "operator" && notification.assignee) return notification.assignee === roles.operator.name;
     return true;
   });
+  if (state.role !== "all_user") return eligible;
+  return eligible.filter((notification, index, items) => items.findIndex(item => item.type === notification.type && item.reference === notification.reference) === index);
 }
 
 function currentNotificationReadiness(notification) {
-  if (notification.reference === "SO-1058") return state.paymentPaid ? "Deposit verified · ready for planning" : "Awaiting £354 deposit · do not schedule";
-  if (notification.reference === "ACC-2045") return notification.active === false ? notification.readiness : state.unassignedClaimApproved ? "Approved · Emma Clarke is primary representative" : "Awaiting Sales Manager decision";
+  if (notification.reference === "SO-1058") return state.paymentPaid ? "Deposit verified · ready for planning" : `Awaiting £${selectedOrderArea().deposit} deposit · do not schedule`;
+  if (notification.reference === "ACC-2045") return notification.active === false ? notification.readiness : state.unassignedClaimApproved ? "Approved · Emma Clarke is primary representative" : "Awaiting authorised ownership decision";
   if (notification.type === "assignment" && notification.active === false) return "Assignment changed · view current record";
   return notification.readiness;
 }
@@ -272,8 +335,12 @@ function renderNotifications() {
     </div>
   </article>`;
   }).join("") : `<div class="notification-empty"><span>✓</span><h3>No notifications for this role</h3><p>Submitted orders notify Operations and the assigned Sales representative. Saved assignments notify the selected Operator.</p></div>`;
-  notificationFooter.innerHTML = state.role === "manager"
-    ? `<strong>Operations routing healthy</strong><span>All submitted-order alerts have a responsible Sampling Manager. SMS failure never removes the in-app record or order.</span>`
+  notificationFooter.innerHTML = state.role === "all_user"
+    ? `<strong>One inbox for this user's permitted work</strong><span>Alex receives one logical alert per event. Customer-to-commercial alerts are web-only; operational SMS remains a separate configurable channel.</span>`
+    : state.role === "sales"
+      ? `<strong>Customer-originated alerts are web-only</strong><span>Order and support responsibility appears here without SMS. Reading an alert does not approve, resolve or transfer the record.</span>`
+    : state.role === "manager"
+    ? `<strong>Operations routing healthy</strong><span>All submitted-order alerts have a responsible user with the required action and scope. SMS failure never removes the in-app record or order.</span>`
     : state.role === "operator"
       ? `<strong>Safe assignment alerts</strong><span>In-app alerts recover after reconnect. SMS delivery and reading remain separate from accepting or starting work.</span>`
       : state.role === "sales_manager"
@@ -325,8 +392,8 @@ function userProfile() {
     <section class="profile-layout"><div class="panel"><header class="panel__header"><div><h2>1 · Enter mobile number</h2><p>Include the country code, then request a verification challenge.</p></div></header><div class="panel__body phone-form"><label class="form-field"><span>Mobile number</span><input id="phone-number" inputmode="tel" value="${profile.number}" /></label><label class="terms-check"><input type="checkbox" checked /> I confirm this number belongs to me and may receive required operational SMS alerts.</label>${phoneErrorMessage()}<div class="job-actions"><button class="secondary-button" data-action="phone-cancel">Cancel</button><button class="primary-button" data-action="phone-send-code">Send verification code</button></div><button class="text-button phone-demo-control" data-action="phone-send-failure">Preview SMS sending failure</button><p class="batch-note">Prototype only · this simulates the backend starting a challenge. No SMS is sent and no provider is configured.</p></div></div><aside class="panel"><header class="panel__header"><div><h2>Why verify?</h2><p>Delivery eligibility is checked per user and per event</p></div></header><div class="panel__body"><div class="readiness-checklist"><span>✓ Challenge binds user/session and exact number</span><span>✓ Keep SMS status separate from in-app delivery</span><span>✓ Recheck active role and permission before sending</span><span>— Sending or delivery alone never marks Verified</span></div></div></aside></section>`;
   if (state.phoneSetupStep === "code") return `${pageHeader("Your profile · Proposed phone setup", "Verify your number", `Enter the one-time code sent to ${maskPhoneNumber(state.pendingPhoneNumber)}.`)}
     <section class="profile-layout"><div class="panel"><header class="panel__header"><div><h2>2 · Enter verification code</h2><p>Type or paste the code from the separate verification SMS.</p></div>${status("Challenge active · simulated","blue")}</header><div class="panel__body phone-form"><label class="form-field verification-code"><span>Verification code</span><input id="phone-code" autocomplete="one-time-code" placeholder="Enter code from SMS" /></label><div class="phone-expiry"><span>Time-limited, single-use challenge</span><strong>Expiry policy pending</strong></div>${phoneErrorMessage()}<div class="phone-code-actions"><button class="text-button" data-action="phone-resend">Resend code</button><span>Cooldown and limits are server-controlled</span></div><div class="job-actions"><button class="secondary-button" data-action="phone-change">Change number</button><button class="primary-button" data-action="phone-verify">Verify</button></div><p class="batch-note">The expected code is never returned to the frontend. This prototype simulates a successful backend response after a code is entered.</p></div></div><aside class="panel"><header class="panel__header"><div><h2>Validation and recovery</h2><p>Preview required failure states</p></div></header><div class="panel__body"><div class="phone-error-controls"><button data-action="phone-demo-error" data-phone-error="incorrect">Incorrect code</button><button data-action="phone-demo-error" data-phone-error="expired">Expired code</button><button data-action="phone-demo-error" data-phone-error="attempts">Too many attempts</button></div><div class="readiness-checklist"><span>✓ Backend checks challenge, user/session and exact number</span><span>✓ Resend supersedes the previous challenge</span><span>✓ Changing number invalidates its pending challenge</span><span>— Browser state, delivery receipt or checkbox cannot verify</span></div></div></aside></section>`;
-  return `${pageHeader("Your profile", "Contact & SMS", "Review the number used for required operational alerts and its verification status.", `<button class="primary-button" data-action="phone-change">Change number</button>`)}
-    <section class="profile-layout"><div class="panel profile-card"><div class="profile-card__identity"><span class="profile-avatar" style="background:${role.accent}">${role.initials}</span><div><span class="eyebrow">${role.title}</span><h2>${role.name}</h2><p>Personal S2L user profile</p></div></div><div class="phone-record"><span><small>Verified mobile</small><strong>${profile.number}</strong></span>${status(profile.verified ? "Verified" : "Not verified",profile.verified ? "green" : "amber")}</div><div class="phone-record"><span><small>Required operational SMS</small><strong>${profile.alerts ? "Enabled for eligible events" : "Unavailable"}</strong></span>${status(profile.alerts ? "Active" : "Attention",profile.alerts ? "blue" : "amber")}</div><p class="batch-note">Last verified ${profile.verifiedAt}. Changing the number requires a new one-time code.</p></div><aside class="stack"><div class="panel"><header class="panel__header"><div><h2>When this number is used</h2><p>Role and permissions are checked at event time</p></div></header><div class="panel__body"><div class="readiness-checklist"><span>${state.role === "operator" ? "✓ Saved job assignments" : state.role === "manager" ? "✓ Newly submitted operational orders" : state.role === "sales" ? "✓ Assigned-customer orders and support" : "✓ Eligible role-based operational alerts"}</span><span>✓ SMS contains a minimal reference and secure sign-in link</span><span>✓ In-app notification remains if SMS fails</span><span>— No marketing or bulk messaging is implied</span></div></div></div><div class="panel"><header class="panel__header"><div><h2>Recent phone audit</h2><p>Per-user history</p></div></header><div class="panel__body activity-list"><div class="activity-item"><span class="activity-dot">✓</span><div><strong>Number verified</strong><p>${profile.number} · user-confirmed code</p><time>${profile.verifiedAt}</time></div></div></div></div></aside></section>`;
+  return `${pageHeader("Your profile", "Contact & SMS", "Review this user's verified number and eligible event channels. The display title does not decide access.", `<button class="primary-button" data-action="phone-change">Change number</button>`)}
+    <section class="profile-layout"><div class="panel profile-card"><div class="profile-card__identity"><span class="profile-avatar" style="background:${role.accent}">${role.initials}</span><div><span class="eyebrow">${state.role === "operator" ? state.sarahDisplayTitle : role.title}</span><h2>${role.name}</h2><p>Optional title · display only · personal S2L identity</p></div></div><div class="phone-record"><span><small>Verified mobile</small><strong>${profile.number}</strong></span>${status(profile.verified ? "Verified" : "Not verified",profile.verified ? "green" : "amber")}</div><div class="phone-record"><span><small>Operational SMS eligibility</small><strong>${profile.alerts ? "Available for agreed eligible events" : "Unavailable"}</strong></span>${status(profile.alerts ? "Active" : "Attention",profile.alerts ? "blue" : "amber")}</div><p class="batch-note">Last verified ${profile.verifiedAt}. Changing the number requires a new one-time code.</p></div><aside class="stack"><div class="panel"><header class="panel__header"><div><h2>When this number is used</h2><p>Effective action, scope and event channel are checked at send time</p></div></header><div class="panel__body"><div class="readiness-checklist"><span>${state.role === "sales" ? "✓ Customer order/support alerts stay web-only" : "✓ Eligible operational events may use an agreed SMS channel"}</span><span>✓ SMS contains a minimal reference and secure sign-in link</span><span>✓ In-app status remains if an eligible SMS fails</span><span>— Phone verification is outside process preferences</span></div></div></div><div class="panel"><header class="panel__header"><div><h2>Recent phone audit</h2><p>Per-user history</p></div></header><div class="panel__body activity-list"><div class="activity-item"><span class="activity-dot">✓</span><div><strong>Number verified</strong><p>${profile.number} · user-confirmed code</p><time>${profile.verifiedAt}</time></div></div></div></div></aside></section>`;
 }
 
 function salesOverview() {
@@ -384,27 +451,36 @@ function salesAreas() {
 }
 
 function managerAreas() {
-  return `${pageHeader("Operations · Geographic hierarchy", "Farms & areas", "Validate and define the customer → farm → field or zone structure used by jobs, maps and sampling plans.", `<button class="secondary-button">Import boundaries</button><button class="primary-button" data-action="add-area">Define new area</button>`)}
+  const orderSubareaReview = state.orderSubareaSaved ? `<div class="panel order-area-review"><header class="panel__header"><div><span class="eyebrow">Created during order preparation</span><h2>Upper Section – West</h2><p>Green Estate → Home Farm → North Field → Upper Section</p></div>${status(state.orderSubareaApproved ? "Published" : "Approval required",state.orderSubareaApproved ? "green" : "amber")}</header><div class="panel__body"><div class="area-governance-grid"><span><small>Requested by</small><strong>${state.orderSubareaRequestedBy || "Order preparation"}</strong></span><span><small>Boundary</small><strong>Draft geometry · 4.1 ha</strong></span><span><small>Containment</small><strong>Inside Upper Section</strong></span><span><small>Overlap check</small><strong>No positive-area overlap</strong></span></div><div class="readiness-checklist"><strong>${state.orderSubareaApproved ? "Published as reusable Area" : "Governed review"}</strong><span>✓ Parent and sibling boundaries remain visible</span><span>✓ Partial subdivision leaves no automatic remainder Area</span><span>✓ Saving the Area did not add it to the order</span><span>${state.orderSubareaApproved ? "✓ Area ID AREA-221 and geometry v1 are available to future orders" : "○ Order draft is preserved while this request is reviewed"}</span></div>${state.orderSubareaApproved ? `<button class="primary-button full-width" data-action="return-order-preparation">Return to order preparation</button>` : `<div class="job-actions"><button class="secondary-button">Request boundary correction</button><button class="primary-button" data-action="approve-order-subarea">Approve & publish Area</button></div>`}</div></div>` : "";
+  return `${pageHeader("Permitted actions · governed geography", "Farms & areas", "Draft and publication are separate actions. This user can validate reusable nested Areas within the organisation scope.", `<button class="secondary-button">Import boundaries</button><button class="primary-button" data-action="add-area">Define new area</button>`)}
+    ${orderSubareaReview}
     <section class="area-layout"><div class="panel"><header class="panel__header"><div><h2>Customer geography</h2><p>16 farms · 58 defined fields and zones</p></div><label class="search-field compact"><span>⌕</span><input aria-label="Search farms and areas" placeholder="Search geography" /></label></header><div class="area-tree">
-      <article class="area-tree__customer is-open"><header><span class="customer-monogram small">GE</span><div><strong>Green Estate</strong><small>3 farms · 11 areas · 146.2 ha</small></div>${status("Active work","green")}</header><div class="area-tree__farms"><div class="area-tree__farm"><div><strong>⌄ Home Farm</strong><small>5 fields · 68.4 ha</small></div><span>SO-1046 active</span></div><div class="area-chips"><button>North Field · 18.4 ha</button><button>Home Close · 14.2 ha</button><button>Orchard · 9.8 ha</button><button>Long Meadow · 13.4 ha</button>${state.areaAdded ? `<button class="is-new">South Paddock · 12.6 ha</button>` : `<button>South Field · 12.6 ha</button>`}</div><div class="area-tree__farm"><div><strong>› East Meadow</strong><small>2 fields · 31.6 ha</small></div>${status("Access blocked","amber")}</div><div class="area-tree__farm"><div><strong>› North Holding</strong><small>4 fields · 46.2 ha</small></div><span>Historic</span></div></div></article>
+      <article class="area-tree__customer is-open"><header><span class="customer-monogram small">GE</span><div><strong>Green Estate</strong><small>3 farms · ${state.orderSubareaApproved ? "12" : "11"} published Areas · 146.2 ha</small></div>${status("Active work","green")}</header><div class="area-tree__farms"><div class="area-tree__farm"><div><strong>⌄ Home Farm</strong><small>Nested reusable geography · labels are configurable</small></div><span>SO-1046 active</span></div><div class="manager-area-hierarchy"><div><strong>⌄ North Field</strong><span>18.4 ha · selectable parent</span></div><div class="manager-area-child"><strong>⌄ Upper Section</strong><span>9.2 ha · selectable child</span></div><div class="manager-area-grandchild"><strong>Upper Section – East</strong><span>4.8 ha · published</span></div>${state.orderSubareaApproved ? `<div class="manager-area-grandchild is-new"><strong>Upper Section – West</strong><span>4.1 ha · AREA-221 · geometry v1</span></div>` : ""}<div class="manager-area-child"><strong>Lower Section</strong><span>7.9 ha · selectable child</span></div></div><div class="area-chips"><button>Home Close · 14.2 ha</button><button>Orchard · 9.8 ha</button><button>Long Meadow · 13.4 ha</button>${state.areaAdded ? `<button class="is-new">South Paddock · 12.6 ha</button>` : `<button>South Field · 12.6 ha</button>`}</div><div class="area-tree__farm"><div><strong>› East Meadow</strong><small>2 areas · 31.6 ha</small></div>${status("Access blocked","amber")}</div><div class="area-tree__farm"><div><strong>› North Holding</strong><small>4 areas · 46.2 ha</small></div><span>Historic</span></div></div></article>
       <article class="area-tree__customer"><header><span class="customer-monogram small">SS</span><div><strong>Smith & Sons</strong><small>4 farms · 16 areas · 212.8 ha</small></div>${status("Report ready","green")}</header></article>
       <article class="area-tree__customer"><header><span class="customer-monogram small">BF</span><div><strong>Brown Farming Ltd</strong><small>2 farms · 9 areas · 118.5 ha</small></div>${status("In progress","blue")}</header></article>
       <article class="area-tree__customer"><header><span class="customer-monogram small">WP</span><div><strong>Westcombe Farms</strong><small>5 farms · 22 areas · 284.1 ha</small></div>${status("Planning","grey")}</header></article>
-    </div></div><aside class="panel"><header class="panel__header"><div><h2>Area definition</h2><p>Home Farm · Green Estate</p></div></header><div class="area-preview"><div class="area-preview__field"><span>North Field<small>18.4 ha</small></span><i>24 planned samples</i></div><div class="area-preview__field second"><span>Home Close<small>14.2 ha</small></span><i>18 planned samples</i></div><div class="area-preview__field third"><span>Orchard<small>9.8 ha</small></span><i>12 planned samples</i></div></div><div class="panel__body"><div class="readiness-checklist"><strong>Geographic structure is reusable</strong><span>✓ Linked to Green Estate</span><span>✓ Farm access details inherited</span><span>✓ Available for future work orders</span><span>✓ Sampling history retained by area</span></div><button class="secondary-button full-width" data-action="add-area">Add field or zone</button></div></aside></section>`;
+    </div></div><aside class="panel"><header class="panel__header"><div><h2>Area definition</h2><p>Home Farm · Green Estate</p></div></header><div class="area-preview nested-area-preview"><div class="area-preview__field"><span>North Field<small>Selectable parent · 18.4 ha</small></span><i>Boundary v6</i></div><div class="area-preview__field second"><span>Upper Section<small>Selectable child · 9.2 ha</small></span><i>Contains deeper Areas</i></div><div class="area-preview__field third"><span>Lower Section<small>Selectable child · 7.9 ha</small></span><i>Partial subdivision allowed</i></div></div><div class="panel__body"><div class="readiness-checklist"><strong>Hierarchy safeguards</strong><span>✓ Parent remains selectable when children exist</span><span>✓ Children can contain their own children</span><span>✓ Parent/descendant and geometry overlap checked per analysis</span><span>✓ Accepted orders retain exact Area IDs and geometry revisions</span></div><button class="secondary-button full-width" data-action="add-area">Add Area at any level</button></div></aside></section>`;
 }
 
 function salesOrders() {
+  const portalArea = selectedOrderArea();
   return `${pageHeader("Sales · Commercial delivery", "Work orders", "Follow every order from agreement through planning, fieldwork, results and invoice readiness.", `<button class="secondary-button">Export</button><button class="primary-button" data-action="new-order">New work order</button>`)}
     <section class="kpi-grid compact-kpis">${kpi("Open orders", state.workOrderCreated ? "18" : "17", "£186k committed", "#3979a8")}${kpi("Awaiting planning", state.workOrderCreated ? "5" : "4", "Operations handoff needed", "#e9a13b")}${kpi("Ready to report", "6", "£31.2k delivered", "#7bbf45")}${kpi("At risk", "2", "Weather and result delay", "#c8534d")}</section>
     <div class="panel"><header class="panel__header"><div><h2>All active work orders</h2><p>North region · sorted by next action</p></div><div class="filter-chips"><button class="is-active">Active</button><button>Draft</button><button>Complete</button></div></header><div class="table-wrap"><table class="data-table order-table"><thead><tr><th>Order</th><th>Customer</th><th>Scope</th><th>Delivery</th><th>Value</th><th>Status</th></tr></thead><tbody>
-      ${state.portalOrderSubmitted ? `<tr class="new-row"><td><div class="cell-title"><strong>SO-1058</strong><small>Source · Farmer portal</small></div></td><td><div class="cell-title"><strong>Green Estate</strong><small>No salesperson required</small></div></td><td><div class="cell-title"><strong>18 samples</strong><small>East Meadow · Soil analysis</small></div></td><td>${progress(0,state.paymentPaid ? "Released to planning" : "Awaiting deposit")}</td><td class="money">£1,416</td><td>${status(state.paymentPaid ? "Planning" : "Payment due",state.paymentPaid ? "blue" : "amber")}</td></tr>` : ""}
-      ${state.workOrderCreated ? `<tr class="new-row"><td><div class="cell-title"><strong>SO-1056</strong><small>Created just now</small></div></td><td><div class="cell-title"><strong>Westcombe Farms</strong><small>Westcombe Farm</small></div></td><td><div class="cell-title"><strong>28 samples</strong><small>4 fields · Powered corer</small></div></td><td>${progress(0,"Planning")}</td><td class="money">£2,680</td><td>${status("Awaiting planning","blue")}</td></tr>` : ""}
+      ${state.portalOrderSubmitted ? `<tr class="new-row"><td><div class="cell-title"><strong>SO-1058</strong><small>Source · Farmer portal</small></div></td><td><div class="cell-title"><strong>Green Estate</strong><small>No salesperson required</small></div></td><td><div class="cell-title"><strong>${portalArea.samples} samples</strong><small>${portalArea.label} · ${portalArea.id}</small></div></td><td>${progress(0,state.paymentPaid ? "Released to planning" : "Awaiting deposit")}</td><td class="money">£${portalArea.total.toLocaleString()}</td><td>${status(state.paymentPaid ? "Planning" : "Payment due",state.paymentPaid ? "blue" : "amber")}</td></tr>` : ""}
+      ${state.workOrderCreated ? `<tr class="new-row"><td><div class="cell-title"><strong>SO-1056</strong><small>Sales-assisted · created just now</small></div></td><td><div class="cell-title"><strong>Green Estate</strong><small>Home Farm</small></div></td><td><div class="cell-title"><strong>${portalArea.samples} samples</strong><small>${portalArea.label} · ${portalArea.revision}</small></div></td><td>${progress(0,"Planning")}</td><td class="money">£${portalArea.total.toLocaleString()}</td><td>${status("Awaiting planning","blue")}</td></tr>` : ""}
       <tr data-clickable data-action="customer-detail"><td><div class="cell-title"><strong>SO-1046</strong><small>Due 18 Sep</small></div></td><td><div class="cell-title"><strong>Green Estate</strong><small>Home Farm</small></div></td><td><div class="cell-title"><strong>75 samples</strong><small>5 fields · Soil analysis</small></div></td><td>${progress(64,"48 collected")}</td><td class="money">£4,200</td><td>${status("Weather delay","amber")}</td></tr>
       <tr><td><div class="cell-title"><strong>SO-1042</strong><small>Due 9 Sep</small></div></td><td><div class="cell-title"><strong>Smith & Sons</strong><small>North Farm</small></div></td><td><div class="cell-title"><strong>84 samples</strong><small>6 fields · Nutrient plan</small></div></td><td>${progress(100,"Report ready")}</td><td class="money">£8,850</td><td>${status("Ready to report","green")}</td></tr>
       <tr><td><div class="cell-title"><strong>SO-1051</strong><small>Due 22 Sep</small></div></td><td><div class="cell-title"><strong>Brown Farming Ltd</strong><small>West Farm</small></div></td><td><div class="cell-title"><strong>41 samples</strong><small>3 fields · Soil analysis</small></div></td><td>${progress(44,"18 collected")}</td><td class="money">£1,900</td><td>${status("In field","blue")}</td></tr>
       <tr><td><div class="cell-title"><strong>SO-1038</strong><small>Due 12 Sep</small></div></td><td><div class="cell-title"><strong>Hilltop Partnership</strong><small>Hilltop Farm</small></div></td><td><div class="cell-title"><strong>54 samples</strong><small>4 fields · Carbon baseline</small></div></td><td>${progress(96,"52 results")}</td><td class="money">£6,780</td><td>${status("2 results missing","amber")}</td></tr>
       <tr><td><div class="cell-title"><strong>SO-1049</strong><small>Due 16 Sep</small></div></td><td><div class="cell-title"><strong>Lower Park Estates</strong><small>Lower Park</small></div></td><td><div class="cell-title"><strong>32 samples</strong><small>2 fields · Nutrient plan</small></div></td><td>${progress(82,"At lab")}</td><td class="money">£4,960</td><td>${status("On track","green")}</td></tr>
     </tbody></table></div></div>`;
+}
+
+function salesNewOrder() {
+  const selected = selectedOrderArea();
+  return `${pageHeader("Permitted action · prepare order", "New staff-assisted work order", "Use the same governed Area selection as customer self-service, with the actual actor and source retained.", `<button class="secondary-button" data-view="orders">Back to orders</button>`)}
+    <section class="portal-order-grid"><div class="panel"><header class="panel__header"><div><h2>1 · Customer & Areas</h2><p>Shared “Select areas to analyse” workflow</p></div>${status("Sales-assisted","blue")}</header><div class="panel__body"><div class="sales-order-context"><label class="form-field"><span>Customer</span><select><option selected>Green Estate · Tom Green</option><option>Westcombe Farms · Alice Moore</option><option>Smith & Sons · Peter Smith</option></select></label><label class="form-field"><span>Account source</span><input value="Existing verified customer · Emma Clarke" readonly /></label></div>${orderAreaSelector()}<div class="portal-form order-details-form"><label class="form-field"><span>Service</span><select><option selected>Standard soil analysis · P, K, Mg, pH</option><option>Precision nutrient plan</option></select></label><label class="form-field"><span>Requested timing</span><input type="date" value="2026-09-24" /></label><label class="form-field form-field--wide"><span>Commercial note</span><textarea rows="3">Priority autumn sampling. Confirm access before assigning the field team.</textarea></label></div></div></div><aside class="panel price-panel"><header class="panel__header"><div><h2>2 · Review & create</h2><p>Customer, Area and price snapshot</p></div></header><div class="panel__body"><div class="selected-scope-card"><small>Selected sampling Area</small><strong>${selected.label}</strong><span>${selected.id} · ${selected.revision} · ${selected.hectares}</span></div><div class="readiness-checklist"><strong>Order evidence</strong><span>✓ Source: Sales-assisted</span><span>✓ Customer relationship retained</span><span>✓ Parent/descendant overlap check passed</span><span>✓ Only explicit Area selection is commissioned</span></div><div class="price-lines"><span><small>Net</small><strong>£${selected.net.toLocaleString()}</strong></span><span><small>VAT · 20%</small><strong>£${selected.vat.toLocaleString()}</strong></span><span class="total"><small>Total</small><strong>£${selected.total.toLocaleString()}</strong></span></div><button class="primary-button full-width" data-action="submit-sales-order">Create work order</button><p class="batch-note">Creates a commercial order and an unassigned Operations planning request.</p></div></aside></section>`;
 }
 
 function salesUnassigned() {
@@ -441,7 +517,7 @@ function salesManagerUnassigned() {
 function salesManagerClaims() {
   return `${pageHeader("Sales Manager · Governed allocation", "Assignment requests", "Approve one current owner atomically; other claims close with an audit reason.")}
     <section class="dashboard-grid"><div class="stack">${state.unassignedClaimSubmitted && !state.unassignedClaimApproved ? `<div class="panel"><header class="panel__header"><div><h2>ACC-2045 · Meadowbrook Agricultural</h2><p>Requested by Emma Clarke · just now</p></div>${status("Approval required","amber")}</header><div class="panel__body"><div class="claim-candidates"><article class="is-selected"><span>EC</span><div><strong>Emma Clarke</strong><small>Eligible · Somerset North · requested assignment</small></div></article><article><span>JR</span><div><strong>Jacob Reed</strong><small>Eligible · adjacent territory · no claim</small></div></article></div><div class="job-actions"><button class="secondary-button" data-action="reject-claim">Reject</button><button class="primary-button" data-action="approve-claim">Approve Emma</button></div></div></div>` : state.unassignedClaimApproved ? `<div class="panel"><div class="panel__body"><div class="lab-success">✓ ACC-2045 assigned to Emma Clarke</div><p class="batch-note">Approved by Olivia Grant. The account left the unassigned pool and the ownership history was retained.</p></div></div>` : `<div class="panel"><div class="empty-state"><div class="empty-state__icon">A</div><h2>No new Meadowbrook claim yet</h2><p>Switch to Sales → Unassigned farmers and request the assignment to demonstrate the approval flow.</p></div></div>`}
-      <div class="panel"><header class="panel__header"><div><h2>ACC-2041 · Oakridge Farm</h2><p>Competing claims · current owner deactivated</p></div>${status("Dispute","red")}</header><div class="panel__body"><div class="claim-candidates"><article><span>JR</span><div><strong>Jacob Reed</strong><small>Claimed 08:20 · Bath East coverage</small></div></article><article><span>RS</span><div><strong>Rina Shah</strong><small>Claimed 08:26 · existing relationship</small></div></article></div><p class="batch-note">Neither claimant gains access until an authorised Sales Manager or Admin decides.</p></div></div></div><aside class="panel"><header class="panel__header"><div><h2>Decision boundary</h2><p>Distinct from Sampling Manager</p></div></header><div class="panel__body"><div class="readiness-checklist"><span>✓ Sales Manager resolves competing claims</span><span>✓ Admin is fallback or escalation authority</span><span>✓ Recheck eligibility at approval</span><span>— No peer-unanimity workflow</span><span>— No map, refund or invoice-posting authority implied</span></div></div></aside></section>`;
+      <div class="panel"><header class="panel__header"><div><h2>ACC-2041 · Oakridge Farm</h2><p>Competing claims · current owner deactivated</p></div>${status("Dispute","red")}</header><div class="panel__body"><div class="claim-candidates"><article><span>JR</span><div><strong>Jacob Reed</strong><small>Claimed 08:20 · Bath East coverage</small></div></article><article><span>RS</span><div><strong>Rina Shah</strong><small>Claimed 08:26 · existing relationship</small></div></article></div><p class="batch-note">Neither claimant gains access until a user with the resolve-ownership action and matching scope decides.</p></div></div></div><aside class="panel"><header class="panel__header"><div><h2>Decision boundary</h2><p>Separate action and scope check</p></div></header><div class="panel__body"><div class="readiness-checklist"><span>✓ Resolve ownership: specifically granted</span><span>✓ Escalation: separately authorised</span><span>✓ Recheck eligibility at approval</span><span>— No peer-unanimity workflow</span><span>— No map, refund or invoice-posting authority implied</span></div></div></aside></section>`;
 }
 
 function salesManagerSupport() {
@@ -449,24 +525,39 @@ function salesManagerSupport() {
     <div class="panel"><header class="panel__header"><div><h2>SUP-201 · Oakridge Farm</h2><p>Access question · received 08:12</p></div>${status("Routing exception","amber")}</header><div class="panel__body"><div class="evidence-grid"><span><small>In-app record</small><strong>Retained</strong></span><span><small>SMS</small><strong>Missing number</strong></span><span><small>Current owner</small><strong>Deactivated</strong></span><span><small>Exposure</small><strong>Fallback queue only</strong></span></div><div class="job-actions"><button class="secondary-button">Escalate to Admin</button><button class="primary-button">Assign representative</button></div></div></div>`;
 }
 
+function customerInteractionTimeline() {
+  return `<div class="timeline crm-timeline" id="customer-timeline">
+    ${state.interactionSaved ? `<article class="timeline-item interaction-record actual"><span class="timeline-marker">CRM</span><div class="timeline-content"><div class="timeline-meta"><span>Actual interaction · Phone</span><time>Occurred yesterday · 16:20 BST</time></div><h3>Tom Green ↔ Sarah Lewis and Emma Clarke</h3><p><strong>Purpose:</strong> Sampling planning. Tom confirmed the north gate can be used if the east track remains waterlogged. Thursday access stays provisional.</p><div class="interaction-facts"><span><small>Actual participants</small><strong>Sarah Lewis · Emma Clarke</strong></span><span><small>Outcome</small><strong>Conversation completed</strong></span><span><small>Linked work</small><strong>JOB-143 · SO-1046</strong></span><span><small>Follow-up</small><strong>Sarah · due 16 Sep · Open</strong></span></div><div class="timeline-tags"><span class="tag blue">Customer interaction</span><span class="tag green">Follow-up created</span><span class="tag grey">Logged on behalf</span></div><div class="interaction-audit">Entered today 14:35 by Alex Morgan · occurrence and entry times retained separately · original typed note preserved</div></div></article>` : ""}
+    <article class="timeline-item interaction-record actual"><span class="timeline-marker">SL</span><div class="timeline-content"><div class="timeline-meta"><span>Actual interaction · On-site visit</span><time>Occurred today · 10:42 BST</time></div><h3>Tom Green ↔ Sarah Lewis</h3><p><strong>Purpose:</strong> Access arrangements. Tom agreed a provisional Thursday return after flooding blocked East Meadow.</p><div class="interaction-facts"><span><small>Actual participants</small><strong>Sarah Lewis</strong></span><span><small>Outcome</small><strong>Return provisionally agreed</strong></span><span><small>Linked work</small><strong>JOB-143 · East Meadow</strong></span><span><small>Follow-up</small><strong>Confirm access · Open</strong></span></div><div class="timeline-tags"><span class="tag blue">Customer interaction</span><span class="tag amber">Operational event linked</span></div><div class="interaction-audit">Entered today 10:47 by Sarah Lewis · recorded by the participant · original field note retained</div></div></article>
+    <article class="timeline-item interaction-record attempt"><span class="timeline-marker">NA</span><div class="timeline-content"><div class="timeline-meta"><span>Contact attempt · Phone</span><time>Occurred 12 Sep · 16:10 BST</time></div><h3>Tom Green · no answer</h3><p><strong>Purpose:</strong> Quote discussion. Emma called but did not reach Tom; this is not counted as a successful customer contact.</p><div class="interaction-facts"><span><small>Attempted by</small><strong>Emma Clarke</strong></span><span><small>Outcome</small><strong>No answer</strong></span><span><small>Linked work</small><strong>Quote Q-208</strong></span><span><small>Follow-up</small><strong>Try again · overdue</strong></span></div><div class="timeline-tags"><span class="tag red">Attempt only</span><span class="tag amber">Follow-up overdue</span></div><div class="interaction-audit">Entered 12 Sep 16:11 by Emma Clarke · no conversation inferred</div></div></article>
+    <article class="timeline-item interaction-record follow-up"><span class="timeline-marker">F</span><div class="timeline-content"><div class="timeline-meta"><span>Planned follow-up · Not an interaction</span><time>Due 13 Sep · 16:00 BST</time></div><h3>Call Tom about quote Q-208</h3><p>Responsible user: Emma Clarke. The task is overdue and remains separate from the attempted call and any future conversation.</p><div class="timeline-tags"><span class="tag amber">Overdue</span><span class="tag grey">Planned action</span></div><div class="interaction-audit">Created from the 12 Sep contact attempt · no occurrence time because it has not happened</div></div></article>
+    ${state.reportPublished ? `<article class="timeline-item interaction-record system"><span class="timeline-marker">R</span><div class="timeline-content"><div class="timeline-meta"><span>Automatic system event · Report</span><time>Just now</time></div><h3>Final report v1 published</h3><p>SO-1046 PDF is visible to authorised Green Estate users. This update is not treated as customer contact.</p><div class="timeline-tags"><span class="tag green">Published report</span><span class="tag grey">System event</span></div></div></article>` : ""}
+    <article class="timeline-item interaction-record system"><span class="timeline-marker">SYS</span><div class="timeline-content"><div class="timeline-meta"><span>Automatic system event · Schedule</span><time>Today · 10:55 BST</time></div><h3>JOB-143 rescheduled to Thursday</h3><p>Sarah remains assigned. The workflow update is visible in the same chronology but does not change the last-actual-contact time.</p><div class="timeline-tags"><span class="tag green">Schedule updated</span><span class="tag grey">System event</span></div><div class="interaction-audit">Generated by S2L workflow · linked to JOB-143 and SO-1046</div></div></article>
+  </div>`;
+}
+
+function customerInteractionTable() {
+  return `<div class="table-wrap"><table class="data-table interaction-table"><thead><tr><th>Occurred / due</th><th>Type</th><th>Customer contact</th><th>Participant / owner</th><th>Purpose & outcome</th><th>Provenance</th></tr></thead><tbody>
+    ${state.interactionSaved ? `<tr><td><strong>Yesterday · 16:20 BST</strong><small>Entered today 14:35</small></td><td>${status("Actual interaction","blue")}</td><td>Tom Green</td><td>Sarah Lewis + Emma Clarke</td><td><strong>Sampling planning</strong><small>Conversation completed · follow-up open</small></td><td>Alex Morgan · on behalf</td></tr>` : ""}
+    <tr><td><strong>Today · 10:42 BST</strong><small>Entered 10:47</small></td><td>${status("Actual interaction","blue")}</td><td>Tom Green</td><td>Sarah Lewis</td><td><strong>Access arrangements</strong><small>Return provisionally agreed</small></td><td>Sarah Lewis</td></tr>
+    <tr><td><strong>12 Sep · 16:10 BST</strong><small>Entered 16:11</small></td><td>${status("Attempt only","red")}</td><td>Tom Green</td><td>Emma Clarke</td><td><strong>Quote discussion</strong><small>No answer · no contact inferred</small></td><td>Emma Clarke</td></tr>
+    <tr><td><strong>Due 13 Sep · 16:00</strong><small>No occurrence time</small></td><td>${status("Planned follow-up","amber")}</td><td>Tom Green</td><td>Emma Clarke</td><td><strong>Quote follow-up</strong><small>Overdue · not yet an interaction</small></td><td>Created from attempt</td></tr>
+    <tr><td><strong>Today · 10:55 BST</strong><small>Automatic</small></td><td>${status("System event","grey")}</td><td>—</td><td>S2L workflow</td><td><strong>Schedule update</strong><small>Not customer contact</small></td><td>JOB-143 event</td></tr>
+  </tbody></table></div>`;
+}
+
 function salesCustomerDetail() {
-  return `${pageHeader("Customers · Green Estate", "Green Estate", "One account timeline from commercial agreement through field delivery, results and invoicing.", `<button class="secondary-button">Contact details</button><button class="primary-button">Add CRM note</button>`)}
+  return `${pageHeader("Customers · Green Estate", "Green Estate", "Structured customer relationship history: who interacted, when it happened, why, what followed and who recorded it.", `<button class="secondary-button">Contact details</button><button class="primary-button" data-action="log-interaction">Log interaction</button>`)}
     <section class="customer-hero"><div class="customer-monogram">GE</div><div><h2>Green Estate</h2><p>Primary contact: Tom Green · Home Farm, Somerset · Customer since 2022</p></div><div class="customer-hero__stats"><span><strong>3</strong><small>Farms</small></span><span><strong>2</strong><small>Open orders</small></span><span><strong>£18.4k</strong><small>Order value</small></span></div></section>
+    <section class="crm-summary-strip"><div><small>Last actual contact</small><strong>Today · 10:42 BST</strong><span>Tom Green ↔ Sarah Lewis</span></div><div><small>Next action</small><strong>Confirm Thursday access</strong><span>Sarah Lewis · due 16 Sep</span></div><div class="is-overdue"><small>Overdue follow-up</small><strong>Quote Q-208 call</strong><span>Emma Clarke · due 13 Sep</span></div><div><small>Tracker boundary</small><strong>Standalone S2L</strong><span>No mailbox or telephony integration</span></div></section>
     <section class="dashboard-grid">
       <div class="stack">
         <div class="panel"><header class="panel__header"><div><h2>Autumn Soil Analysis</h2><p>SO-1046 · 5 fields · 75 planned samples</p></div>${status("Weather delay","amber")}</header><div class="panel__body"><div style="margin-bottom:18px">${progress(64,"Sampling progress · 48 collected")}</div><div class="metric-grid"><div class="metric"><small>Collected</small><strong>48 / 75</strong><em>64% complete</em></div><div class="metric"><small>At lab</small><strong>32</strong><em>Next dispatch Thu</em></div><div class="metric"><small>Results ready</small><strong>18</strong><em>12 validated</em></div></div></div></div>
-        <div class="panel"><header class="panel__header"><div><h2>Customer timeline</h2><p>CRM and operational activity in one auditable view</p></div><button class="text-button">Filter</button></header><div class="panel__body"><div class="timeline" id="customer-timeline">
-          ${state.reportPublished ? `<article class="timeline-item"><span class="timeline-marker">R</span><div class="timeline-content"><div class="timeline-meta"><span>Laboratory publication</span><time>Just now</time></div><h3>Final report v1 published</h3><p>SO-1046 PDF is visible to authorised Green Estate users and permitted staff.</p><div class="timeline-tags"><span class="tag green">Published report</span></div></div></article>` : ""}
-          ${state.portalOrderSubmitted ? `<article class="timeline-item"><span class="timeline-marker">TG</span><div class="timeline-content"><div class="timeline-meta"><span>Tom Green · Farmer portal</span><time>Just now</time></div><h3>SO-1058 submitted directly</h3><p>Accepted price £1,416 · East Meadow Area-version snapshot retained · ${state.paymentPaid ? "deposit verified" : "deposit due"}.</p><div class="timeline-tags"><span class="tag blue">Portal order</span><span class="tag grey">No sales gate</span></div></div></article>` : ""}
-          ${state.noteSaved ? `<article class="timeline-item"><span class="timeline-marker">SL</span><div class="timeline-content"><div class="timeline-meta"><span>Sarah Lewis · Field operator</span><time>Just now</time></div><h3>Flooding reported; return agreed with Tom</h3><p>East Meadow cannot be accessed. Original operator note and any attachment are retained. Follow-up proposed for Wednesday.</p><div class="timeline-tags"><span class="tag blue">CRM interaction</span><span class="tag amber">Operational event</span><span class="tag grey">AI reviewed</span></div></div></article>` : ""}
-          <article class="timeline-item"><span class="timeline-marker">SL</span><div class="timeline-content"><div class="timeline-meta"><span>Sarah Lewis · Field operator</span><time>Today · 10:42</time></div><h3>Flooding blocked access to East Meadow</h3><p>Spoke with Tom on site. Return provisionally agreed for Thursday, subject to access conditions.</p><div class="timeline-tags"><span class="tag blue">CRM interaction</span><span class="tag amber">Site event</span><span class="tag red">Work blocked</span></div></div></article>
-          <article class="timeline-item"><span class="timeline-marker">DW</span><div class="timeline-content"><div class="timeline-meta"><span>Daniel Wright · Sampling manager</span><time>Today · 10:55</time></div><h3>Job rescheduled to Thursday</h3><p>Sarah retained as assigned operator. 27 outstanding samples moved to 10 September.</p><div class="timeline-tags"><span class="tag green">Schedule updated</span></div></div></article>
-          <article class="timeline-item"><span class="timeline-marker">L</span><div class="timeline-content"><div class="timeline-meta"><span>Central laboratory</span><time>Yesterday · 14:18</time></div><h3>32 samples received</h3><p>Dispatch DSP-882 passed reconciliation with no unmatched pods.</p><div class="timeline-tags"><span class="tag green">Chain verified</span></div></div></article>
-          <article class="timeline-item"><span class="timeline-marker">EC</span><div class="timeline-content"><div class="timeline-meta"><span>Emma Clarke · Sales</span><time>3 Sep · 11:30</time></div><h3>Campaign kickoff completed</h3><p>Tom confirmed access contacts, preferred reporting format and completion target.</p><div class="timeline-tags"><span class="tag blue">CRM interaction</span></div></div></article>
-        </div></div></div>
+        <div class="panel crm-tracker-panel"><header class="panel__header"><div><span class="eyebrow">S2L-WEB-003 · Proposed tracker UX</span><h2>Activity & interactions</h2><p>Actual contacts, attempts, planned follow-ups and system events remain visibly distinct.</p></div><div class="activity-view-switch"><button class="${state.customerActivityView === "timeline" ? "is-active" : ""}" data-action="activity-timeline">Timeline</button><button class="${state.customerActivityView === "table" ? "is-active" : ""}" data-action="activity-table">Table</button></div></header><div class="interaction-toolbar"><label class="search-field compact"><span>⌕</span><input aria-label="Search interactions" placeholder="Search summary or linked work" /></label><select aria-label="Filter participant"><option>All participants</option><option>Sarah Lewis</option><option>Emma Clarke</option><option>Alex Morgan</option></select><select aria-label="Filter channel"><option>All channels</option><option>Phone</option><option>On-site visit</option><option>Email</option><option>Message</option></select><select aria-label="Filter activity type"><option>All activity types</option><option>Actual interaction</option><option>Attempt only</option><option>Planned follow-up</option><option>System event</option></select></div><div class="panel__body crm-tracker-body">${state.customerActivityView === "timeline" ? customerInteractionTimeline() : customerInteractionTable()}</div></div>
       </div>
       <div class="stack">
-        <div class="panel"><header class="panel__header"><div><h2>Account attention</h2><p>Next best actions</p></div></header><div class="panel__body attention-list"><div class="attention-item">${iconBadge("1")}<div><strong>Confirm Thursday access</strong><small>Call Tom by Wednesday 16:00.</small></div><time>Due Wed</time></div><div class="attention-item">${iconBadge("2")}<div><strong>Explain revised completion</strong><small>Expected report date moves to 18 Sep.</small></div><time>Suggested</time></div></div></div>
+        <div class="panel"><header class="panel__header"><div><h2>Follow-up register</h2><p>Tasks are not evidence of completed contact</p></div></header><div class="panel__body attention-list"><div class="attention-item">${iconBadge("1")}<div><strong>Confirm Thursday access</strong><small>Sarah Lewis · linked JOB-143.</small></div><time>Due 16 Sep</time></div><div class="attention-item is-overdue">${iconBadge("!")}<div><strong>Retry quote discussion</strong><small>Emma Clarke · previous attempt had no answer.</small></div><time>Overdue</time></div>${state.interactionSaved ? `<div class="attention-item">${iconBadge("+")}<div><strong>Send updated access plan</strong><small>Sarah Lewis · created from logged interaction.</small></div><time>Open</time></div>` : ""}</div></div>
+        <div class="panel"><header class="panel__header"><div><h2>Access & provenance</h2><p>History survives organisational change</p></div></header><div class="panel__body"><div class="readiness-checklist"><span>✓ View, log, correct and assign follow-up are separate actions</span><span>✓ Actual participants are not replaced by the customer owner</span><span>✓ Reassignment or title changes preserve attribution</span><span>— Private interactions do not follow shared quote visibility</span></div></div></div>
         <div class="panel"><header class="panel__header"><div><h2>Farms</h2><p>Current account coverage</p></div></header><div class="panel__body attention-list"><div class="attention-item">${iconBadge("H")}<div><strong>Home Farm</strong><small>5 fields · Active campaign</small></div>${status("Active","green")}</div><div class="attention-item">${iconBadge("E")}<div><strong>East Meadow</strong><small>2 fields · Access blocked</small></div>${status("Delayed","amber")}</div><div class="attention-item">${iconBadge("N")}<div><strong>North Holding</strong><small>4 fields · Last sampled 2025</small></div>${status("Historic","grey")}</div></div></div>
       </div>
     </section>`;
@@ -484,7 +575,7 @@ function managerOverview() {
       <div class="stack">
         <div class="panel"><header class="panel__header"><div><h2>Live operations map</h2><p>Operator position is shown only during active assignment evidence</p></div><div>${status("6 operators active","green")}</div></header><div class="map-board"><div class="map-field one">North Farm</div><div class="map-field two">Manor Farm</div><div class="map-field three">East Meadow</div><div class="map-pin sarah"><span>SL</span></div><div class="map-pin james"><span>JM</span></div><div class="map-alert">! Flooding · JOB-143</div><div class="map-legend"><span><i></i>On track</span><span><i></i>Issue</span></div></div></div>
         <div class="panel"><header class="panel__header"><div><h2>Jobs needing action</h2><p>Unassigned work and active field exceptions</p></div><button class="text-button">View all jobs →</button></header><div class="table-wrap"><table class="data-table"><thead><tr><th>Job</th><th>Plan</th><th>Operator</th><th>Status</th></tr></thead><tbody>
-          ${state.portalOrderSubmitted ? `<tr class="new-row"><td><div class="cell-title"><strong>JOB-156 · Green Estate</strong><small>18 samples · Farmer portal order</small></div></td><td><div class="cell-title"><strong>Requested 21 Sep</strong><small>${state.paymentPaid ? "Deposit verified · ready to plan" : "Awaiting demo deposit"}</small></div></td><td><div class="cell-title"><strong>Unassigned</strong><small>No salesperson required</small></div></td><td>${status(state.paymentPaid ? "Needs planning" : "Commercial hold",state.paymentPaid ? "blue" : "amber")}</td></tr>` : ""}
+          ${state.portalOrderSubmitted ? `<tr class="new-row"><td><div class="cell-title"><strong>JOB-156 · Green Estate</strong><small>${selectedOrderArea().samples} samples · ${selectedOrderArea().id} · Farmer portal</small></div></td><td><div class="cell-title"><strong>Requested 21 Sep</strong><small>${state.paymentPaid ? "Deposit verified · ready to plan" : "Awaiting demo deposit"}</small></div></td><td><div class="cell-title"><strong>Unassigned</strong><small>${selectedOrderArea().revision} frozen at acceptance</small></div></td><td>${status(state.paymentPaid ? "Needs planning" : "Commercial hold",state.paymentPaid ? "blue" : "amber")}</td></tr>` : ""}
           <tr data-clickable data-action="assign"><td><div class="cell-title"><strong>JOB-145 · Westcombe Farm</strong><small>28 samples · Powered corer</small></div></td><td><div class="cell-title"><strong>11 Sep · 09:00</strong><small>4h 10m estimated</small></div></td><td><div class="cell-title"><strong>${state.assignedOperator || "Unassigned"}</strong><small>${state.assignedOperator ? "Decision captured" : "3 eligible operators"}</small></div></td><td>${status(state.assignedOperator ? "Assigned" : "Needs assignment",state.assignedOperator ? "green" : "amber")}</td></tr>
           <tr><td><div class="cell-title"><strong>JOB-143 · Green Estate</strong><small>27 remaining · East Meadow</small></div></td><td><div class="cell-title"><strong>Reschedule proposed</strong><small>Thu 10 Sep</small></div></td><td><div class="cell-title"><strong>Sarah Lewis</strong><small>Corer-12 · SC-008</small></div></td><td>${status("Flooding","red")}</td></tr>
           <tr><td><div class="cell-title"><strong>JOB-148 · Lower Park</strong><small>Smart Case sync overdue</small></div></td><td><div class="cell-title"><strong>Today · 07:30</strong><small>Fieldwork complete</small></div></td><td><div class="cell-title"><strong>James Morgan</strong><small>SC-014 offline</small></div></td><td>${status("Awaiting sync","amber")}</td></tr>
@@ -610,32 +701,52 @@ function farmerRegister() {
 }
 
 function farmerOverview() {
+  const selected = selectedOrderArea();
   const orderStatus = state.portalOrderSubmitted ? (state.paymentPaid ? "Confirmed · planning" : "Action required") : "Not started";
   return `${pageHeader("Green Estate portal", "Good morning, Tom", "See your own farms, accepted prices, progress and published reports. Internal notes and operator metrics stay private.", `<button class="secondary-button" data-action="farmer-logout">Sign out</button><button class="primary-button" data-action="farmer-new-order">Order sampling</button>`)}
-    <section class="portal-hero"><div><span class="eyebrow">Your account</span><h2>Green Estate</h2><p>3 authorised farms · account terms plus deposit rules</p></div><div><small>Active orders</small><strong>${state.portalOrderSubmitted ? "3" : "2"}</strong></div><div><small>Amount due</small><strong>${state.portalOrderSubmitted && !state.paymentPaid ? "£354" : "£0"}</strong></div><div><small>Reports</small><strong>${state.reportPublished ? "2" : "1"}</strong></div></section>
+    <section class="portal-hero"><div><span class="eyebrow">Your account</span><h2>Green Estate</h2><p>3 authorised farms · account terms plus deposit rules</p></div><div><small>Active orders</small><strong>${state.portalOrderSubmitted ? "3" : "2"}</strong></div><div><small>Amount due</small><strong>${state.portalOrderSubmitted && !state.paymentPaid ? `£${selected.deposit}` : "£0"}</strong></div><div><small>Reports</small><strong>${state.reportPublished ? "2" : "1"}</strong></div></section>
     <section class="dashboard-grid"><div class="stack"><div class="panel"><header class="panel__header"><div><h2>Current work</h2><p>Real stages and dates, not a fake completion percentage</p></div><button class="text-button" data-action="farmer-orders">All orders →</button></header><div class="panel__body"><div class="customer-milestones"><span class="done">Submitted</span><span class="done">Confirmed</span><span class="done">Scheduled</span><span class="current">Sampling</span><span>At lab</span><span>Report</span></div><div class="portal-order-summary"><div><small>SO-1046 · Sales-assisted</small><strong>Autumn Soil Analysis</strong><p>East Meadow delayed by flooding. Return requested for Thursday; Operations is confirming access.</p></div>${status("Sampling delayed","amber")}</div></div></div>
-      ${state.portalOrderSubmitted ? `<div class="panel"><header class="panel__header"><div><h2>SO-1058 · Your portal order</h2><p>East Meadow · 18 samples · accepted total £1,416</p></div>${status(orderStatus,state.paymentPaid ? "blue" : "amber")}</header><div class="panel__body"><div class="readiness-checklist"><strong>Order record</strong><span>✓ Source: Farmer portal</span><span>✓ Price and Area v4 snapshot retained</span><span>${state.paymentPaid ? "✓ Demo deposit verified" : "! Demo deposit of £354 due"}</span><span>${state.paymentPaid ? "✓ Released to Sampling Manager" : "○ Operational release waiting"}</span></div>${!state.paymentPaid ? `<button class="primary-button full-width" data-action="demo-payment">Demo: pay £354 deposit</button><p class="batch-note">No real payment. Production would use the provider's hosted checkout.</p>` : ""}</div></div>` : ""}
-    </div><div class="stack"><div class="panel"><header class="panel__header"><div><h2>Actions for you</h2><p>Only customer-visible decisions</p></div></header><div class="panel__body attention-list">${state.portalOrderSubmitted && !state.paymentPaid ? `<div class="attention-item">${iconBadge("£","red")}<div><strong>Deposit required</strong><small>£354 must be verified before SO-1058 enters planning.</small></div><button class="text-button" data-action="demo-payment">Pay demo</button></div>` : ""}<div class="attention-item">${iconBadge("!")}<div><strong>Confirm East Meadow access</strong><small>Tell Operations whether the south track is usable Thursday.</small></div><button class="text-button">Respond</button></div><div class="attention-item">${iconBadge("R")}<div><strong>${state.reportPublished ? "New report available" : "North Holding report"}</strong><small>${state.reportPublished ? "SO-1046 final report v1 has been published." : "Published 2 September · PDF"}</small></div><button class="text-button" data-action="farmer-reports">View</button></div></div></div><div class="panel"><header class="panel__header"><div><h2>Your farms</h2><p>Read-only operational geography</p></div></header><div class="panel__body attention-list"><div class="attention-item">${iconBadge("H")}<div><strong>Home Farm</strong><small>5 fields · 68.4 ha</small></div>${status("Current","green")}</div><div class="attention-item">${iconBadge("E")}<div><strong>East Meadow</strong><small>${state.boundaryPublished ? "Boundary v4 · 32.1 ha" : "Correction under review"}</small></div>${status(state.boundaryPublished ? "Published" : "In review",state.boundaryPublished ? "green" : "amber")}</div></div></div></div></section>`;
+      ${state.portalOrderSubmitted ? `<div class="panel"><header class="panel__header"><div><h2>SO-1058 · Your portal order</h2><p>${selected.label} · ${selected.samples} samples · accepted total £${selected.total.toLocaleString()}</p></div>${status(orderStatus,state.paymentPaid ? "blue" : "amber")}</header><div class="panel__body"><div class="readiness-checklist"><strong>Order record</strong><span>✓ Source: Customer portal</span><span>✓ ${selected.id} and ${selected.revision} snapshot retained</span><span>${state.paymentPaid ? "✓ Demo deposit verified" : `! Demo deposit of £${selected.deposit} due`}</span><span>${state.paymentPaid ? "✓ Released to permitted planning users" : "○ Operational release waiting"}</span></div>${!state.paymentPaid ? `<button class="primary-button full-width" data-action="demo-payment">Demo: pay £${selected.deposit} deposit</button><p class="batch-note">No real payment. Production would use the provider's hosted checkout.</p>` : ""}</div></div>` : ""}
+    </div><div class="stack"><div class="panel"><header class="panel__header"><div><h2>Actions for you</h2><p>Only customer-visible decisions</p></div></header><div class="panel__body attention-list">${state.portalOrderSubmitted && !state.paymentPaid ? `<div class="attention-item">${iconBadge("£","red")}<div><strong>Deposit required</strong><small>£${selected.deposit} must be verified before SO-1058 enters planning.</small></div><button class="text-button" data-action="demo-payment">Pay demo</button></div>` : ""}<div class="attention-item">${iconBadge("!")}<div><strong>Confirm East Meadow access</strong><small>Tell Operations whether the south track is usable Thursday.</small></div><button class="text-button">Respond</button></div><div class="attention-item">${iconBadge("R")}<div><strong>${state.reportPublished ? "New report available" : "North Holding report"}</strong><small>${state.reportPublished ? "SO-1046 final report v1 has been published." : "Published 2 September · PDF"}</small></div><button class="text-button" data-action="farmer-reports">View</button></div></div></div><div class="panel"><header class="panel__header"><div><h2>Your farms</h2><p>Read-only operational geography</p></div></header><div class="panel__body attention-list"><div class="attention-item">${iconBadge("H")}<div><strong>Home Farm</strong><small>5 fields · 68.4 ha</small></div>${status("Current","green")}</div><div class="attention-item">${iconBadge("E")}<div><strong>East Meadow</strong><small>${state.boundaryPublished ? "Boundary v4 · 32.1 ha" : "Correction under review"}</small></div>${status(state.boundaryPublished ? "Published" : "In review",state.boundaryPublished ? "green" : "amber")}</div></div></div></div></section>`;
 }
 
 function farmerOrders() {
+  const selected = selectedOrderArea();
   const logisticsMilestone = state.labParcelReconciled ? "At laboratory" : state.outboundCarrierDelivered ? "Delivered · lab check pending" : state.outboundHandedOver ? "On way to laboratory" : state.outboundBooked ? "Collection booked" : state.dispatchReconciled ? "Preparing dispatch" : "Samples reconciling";
   return `${pageHeader("Green Estate portal", "My orders", "Sales-assisted and self-service orders appear together with source, accepted price and customer-visible progress.", `<button class="primary-button" data-action="farmer-new-order">New order</button>`)}
-    <div class="panel"><div class="table-wrap"><table class="data-table"><thead><tr><th>Order</th><th>Service / Areas</th><th>Price</th><th>Progress</th><th>Payment</th></tr></thead><tbody>${state.portalOrderSubmitted ? `<tr class="new-row"><td><div class="cell-title"><strong>SO-1058</strong><small>Farmer portal · submitted today</small></div></td><td><div class="cell-title"><strong>Standard soil analysis</strong><small>East Meadow · 18 samples</small></div></td><td class="money">£1,416</td><td>${status(state.paymentPaid ? "Planning" : "Awaiting payment",state.paymentPaid ? "blue" : "amber")}</td><td>${status(state.paymentPaid ? "£354 paid" : "£354 due",state.paymentPaid ? "green" : "amber")}</td></tr>` : ""}<tr class="new-row"><td><div class="cell-title"><strong>SO-1049</strong><small>Sales-assisted · customer milestone only</small></div></td><td><div class="cell-title"><strong>Lower Field baseline</strong><small>12 samples · parcel details private</small></div></td><td class="money">£1,860</td><td>${status(logisticsMilestone,state.labParcelReconciled ? "green" : state.outboundHandedOver ? "blue" : "amber")}</td><td>${status("Account terms","grey")}</td></tr><tr><td><div class="cell-title"><strong>SO-1046</strong><small>Sales-assisted</small></div></td><td><div class="cell-title"><strong>Autumn Soil Analysis</strong><small>5 fields · 75 samples</small></div></td><td class="money">£4,200</td><td>${status("Sampling delayed","amber")}</td><td>${status("Account terms","grey")}</td></tr><tr><td><div class="cell-title"><strong>SO-1035</strong><small>Sales-assisted</small></div></td><td><div class="cell-title"><strong>Spring nutrient plan</strong><small>North Holding · final</small></div></td><td class="money">£2,960</td><td>${status("Report available","green")}</td><td>${status("Paid","green")}</td></tr></tbody></table></div></div>`;
+    <div class="panel"><div class="table-wrap"><table class="data-table"><thead><tr><th>Order</th><th>Service / Areas</th><th>Price</th><th>Progress</th><th>Payment</th></tr></thead><tbody>${state.portalOrderSubmitted ? `<tr class="new-row"><td><div class="cell-title"><strong>SO-1058</strong><small>Farmer portal · submitted today</small></div></td><td><div class="cell-title"><strong>Standard soil analysis</strong><small>${selected.label} · ${selected.samples} samples · ${selected.revision}</small></div></td><td class="money">£${selected.total.toLocaleString()}</td><td>${status(state.paymentPaid ? "Planning" : "Awaiting payment",state.paymentPaid ? "blue" : "amber")}</td><td>${status(state.paymentPaid ? `£${selected.deposit} paid` : `£${selected.deposit} due`,state.paymentPaid ? "green" : "amber")}</td></tr>` : ""}<tr class="new-row"><td><div class="cell-title"><strong>SO-1049</strong><small>Sales-assisted · customer milestone only</small></div></td><td><div class="cell-title"><strong>Lower Field baseline</strong><small>12 samples · parcel details private</small></div></td><td class="money">£1,860</td><td>${status(logisticsMilestone,state.labParcelReconciled ? "green" : state.outboundHandedOver ? "blue" : "amber")}</td><td>${status("Account terms","grey")}</td></tr><tr><td><div class="cell-title"><strong>SO-1046</strong><small>Sales-assisted</small></div></td><td><div class="cell-title"><strong>Autumn Soil Analysis</strong><small>5 fields · 75 samples</small></div></td><td class="money">£4,200</td><td>${status("Sampling delayed","amber")}</td><td>${status("Account terms","grey")}</td></tr><tr><td><div class="cell-title"><strong>SO-1035</strong><small>Sales-assisted</small></div></td><td><div class="cell-title"><strong>Spring nutrient plan</strong><small>North Holding · final</small></div></td><td class="money">£2,960</td><td>${status("Report available","green")}</td><td>${status("Paid","green")}</td></tr></tbody></table></div></div>`;
+}
+
+function selectedOrderArea() {
+  const areas = {
+    "north-field": { id: "AREA-184", label: "North Field · entire boundary", path: "Green Estate → Home Farm → North Field", revision: "Boundary v6", hectares: "18.4 ha", samples: 12, net: 820, vat: 164, total: 984, deposit: 246 },
+    "upper-section": { id: "AREA-198", label: "Upper Section", path: "Green Estate → Home Farm → North Field → Upper Section", revision: "Geometry v3", hectares: "9.2 ha", samples: 7, net: 520, vat: 104, total: 624, deposit: 156 },
+    "upper-east": { id: "AREA-209", label: "Upper Section – East", path: "Green Estate → Home Farm → North Field → Upper Section → Upper Section – East", revision: "Geometry v2", hectares: "4.8 ha", samples: 4, net: 340, vat: 68, total: 408, deposit: 102 },
+    "upper-west": { id: "AREA-221", label: "Upper Section – West", path: "Green Estate → Home Farm → North Field → Upper Section → Upper Section – West", revision: "Geometry v1", hectares: "4.1 ha", samples: 3, net: 280, vat: 56, total: 336, deposit: 84 },
+    "lower-section": { id: "AREA-203", label: "Lower Section", path: "Green Estate → Home Farm → North Field → Lower Section", revision: "Geometry v4", hectares: "7.9 ha", samples: 6, net: 460, vat: 92, total: 552, deposit: 138 },
+  };
+  return areas[state.orderAreaSelection] || areas["north-field"];
+}
+
+function orderAreaSelector() {
+  const selected = selectedOrderArea();
+  const areaRow = (id, name, meta, depth = 0, disabled = false) => `<button class="order-area-row depth-${depth} ${state.orderAreaSelection === id ? "is-selected" : ""}" data-action="select-order-area" data-area="${id}" ${disabled ? "disabled" : ""}><span class="area-radio">${state.orderAreaSelection === id ? "✓" : ""}</span><span><strong>${name}</strong><small>${meta}</small></span>${state.orderAreaSelection === id ? `<em>Selected</em>` : ""}</button>`;
+  return `<div class="order-area-workspace"><section class="order-area-map" aria-label="Area hierarchy map"><div class="order-map-path"><small>Current path</small><strong>${selected.path.replaceAll(" → ", " / ")}</strong></div><div class="order-map-boundary parent"><span>North Field<small>18.4 ha · selectable whole Area</small></span></div><div class="order-map-boundary upper"><span>Upper Section<small>9.2 ha</small></span></div><div class="order-map-boundary upper-east"><span>Upper East<small>4.8 ha</small></span></div>${state.orderSubareaSaved ? `<div class="order-map-boundary upper-west ${state.orderSubareaApproved ? "approved" : "pending"}"><span>Upper West<small>${state.orderSubareaApproved ? "Approved · 4.1 ha" : "Draft · not selectable"}</small></span></div>` : ""}<div class="order-map-boundary lower"><span>Lower Section<small>7.9 ha</small></span></div><div class="order-map-legend"><span><i></i> Parent</span><span><i></i> Existing child</span><span><i></i> Proposed subarea</span></div></section><section class="order-area-hierarchy"><div class="area-breadcrumb">Green Estate <b>›</b> Home Farm <b>›</b> North Field</div><div class="hierarchy-heading"><div><strong>Select areas to analyse</strong><small>Select one eligible Area for this demonstration</small></div><button class="secondary-button" data-action="order-add-subarea">+ Add subarea</button></div>${areaRow("north-field", "Select entire North Field", "Parent remains eligible even though children exist", 0)}<div class="area-children">${areaRow("upper-section", "Upper Section", "Existing child · contains two deeper Areas", 1)}<div class="area-children nested">${areaRow("upper-east", "Upper Section – East", "Published deeper Area · 4.8 ha", 2)}${state.orderSubareaSaved ? areaRow("upper-west", "Upper Section – West", state.orderSubareaApproved ? "Published deeper Area · 4.1 ha" : "Saved draft · Operations approval required", 2, !state.orderSubareaApproved) : ""}</div>${areaRow("lower-section", "Lower Section", "Existing child · 7.9 ha", 1)}</div>${state.orderSubareaSaved && !state.orderSubareaApproved ? `<div class="area-review-notice"><strong>Draft subarea saved; order draft preserved</strong><p>Operations must validate and publish it. Saving alone did not select analysis, change price or create a remainder Area.</p><button class="text-button" data-action="view-area-approval">Open Operations approval →</button></div>` : state.orderSubareaApproved && state.orderAreaSelection !== "upper-west" ? `<div class="area-review-notice is-approved"><strong>Upper Section – West is approved</strong><p>It is now reusable, but remains unselected until you explicitly choose it.</p></div>` : ""}</section></div><div class="scope-review"><div><span class="eyebrow">Selected sampling Area</span><strong>${selected.label}</strong><small>${selected.id} · ${selected.revision} · ${selected.hectares}</small></div><div><span class="eyebrow">Services & tests</span><strong>Standard soil analysis</strong><small>P, K, Mg and pH · ${selected.samples} planned samples</small></div><div><span class="eyebrow">Overlap safeguard</span><strong>Passed</strong><small>Parent and descendants cannot both be billed for this analysis</small></div></div>`;
 }
 
 function farmerNewOrder() {
-  if (state.portalOrderSubmitted) return `${pageHeader("Green Estate portal", "Order submitted", "SO-1058 keeps the accepted commercial and Area-version snapshot. No salesperson or opportunity was required.")}<section class="confirmation-panel"><span>✓</span><div><small>SO-1058 · Source FARMER_PORTAL</small><h2>Standard soil analysis requested</h2><p>East Meadow · 18 samples · requested 21 September · accepted total £1,416 including VAT.</p><div class="readiness-checklist"><span>✓ Authorised Area checked</span><span>✓ Price version AGR-2026-09 retained</span><span>✓ Terms accepted at submission</span><span>${state.paymentPaid ? "✓ Deposit verified · released to planning" : "! £354 demo deposit required before release"}</span></div><button class="primary-button" data-action="${state.paymentPaid ? "farmer-orders" : "demo-payment"}">${state.paymentPaid ? "View my orders" : "Demo: pay £354 deposit"}</button><p class="batch-note">No real payment is collected in this stakeholder prototype.</p></div></section>`;
-  return `${pageHeader("Green Estate portal", "Order soil sampling", "Choose authorised Areas and services, then review the authoritative price and payment terms before submission.")}
-    <section class="portal-order-grid"><div class="panel"><header class="panel__header"><div><h2>1 · Scope</h2><p>Your authorised account and Areas only</p></div>${status("Green Estate","green")}</header><div class="panel__body portal-form"><label class="form-field"><span>Farm</span><select><option>Home Farm</option><option selected>East Meadow</option><option>North Holding</option></select></label><label class="form-field"><span>Area</span><select><option selected>East Meadow · Boundary v4 · 32.1 ha</option><option>Lower Field · 14.8 ha</option></select></label><label class="form-field"><span>Service</span><select><option selected>Standard soil analysis · P, K, Mg, pH</option><option>Precision nutrient plan</option></select></label><label class="form-field"><span>Requested timing</span><input type="date" value="2026-09-21" /></label><label class="form-field form-field--wide"><span>Access notes</span><textarea rows="3">Use south access track if dry. Please call before arrival.</textarea></label><button class="text-button" data-action="request-map-correction">Area missing or incorrect? Request a correction</button></div></div>
-    <aside class="panel price-panel"><header class="panel__header"><div><h2>2 · Price & terms</h2><p>Authoritative catalogue version AGR-2026-09</p></div></header><div class="panel__body"><div class="price-lines"><span><small>18 samples × £60</small><strong>£1,080</strong></span><span><small>Field mobilisation</small><strong>£100</strong></span><span><small>Net</small><strong>£1,180</strong></span><span><small>VAT · 20%</small><strong>£236</strong></span><span class="total"><small>Total</small><strong>£1,416</strong></span></div><div class="payment-rule"><strong>25% deposit required</strong><p>£354 through hosted checkout. Remaining £1,062 follows agreed account terms.</p></div><label class="terms-check"><input type="checkbox" checked /> I accept the displayed price, service scope and commercial terms.</label><button class="primary-button full-width" data-action="submit-portal-order">Submit order</button><p class="batch-note">Demo only. The browser total is not trusted by the production design.</p></div></aside></section>`;
+  const selected = selectedOrderArea();
+  if (state.portalOrderSubmitted) return `${pageHeader("Green Estate portal", "Order submitted", "SO-1058 keeps the accepted commercial, hierarchy and exact geometry snapshot. No salesperson or opportunity was required.")}<section class="confirmation-panel"><span>✓</span><div><small>SO-1058 · Source FARMER_PORTAL</small><h2>Standard soil analysis requested</h2><p>${selected.label} · ${selected.samples} samples · requested 21 September · accepted total £${selected.total.toLocaleString()} including VAT.</p><div class="readiness-checklist"><span>✓ ${selected.id} and hierarchy path retained</span><span>✓ ${selected.revision} frozen for accepted scope</span><span>✓ Price version AGR-2026-09 and terms retained</span><span>✓ Later Area changes cannot rewrite this order</span><span>${state.paymentPaid ? "✓ Deposit verified · released to planning" : `! £${selected.deposit} demo deposit required before release`}</span></div><button class="primary-button" data-action="${state.paymentPaid ? "farmer-orders" : "demo-payment"}">${state.paymentPaid ? "View my orders" : `Demo: pay £${selected.deposit} deposit`}</button><p class="batch-note">No real payment is collected in this stakeholder prototype.</p></div></section>`;
+  return `${pageHeader("Green Estate portal", "Order soil sampling", "Select an authorised parent Area, child or deeper subarea without leaving the order. Draft geography remains governed.")}
+    <section class="portal-order-grid"><div class="panel"><header class="panel__header"><div><h2>1 · Select areas to analyse</h2><p>Map and expandable hierarchy stay in sync</p></div>${status("Green Estate","green")}</header><div class="panel__body">${orderAreaSelector()}<div class="portal-form order-details-form"><label class="form-field"><span>Service</span><select><option selected>Standard soil analysis · P, K, Mg, pH</option><option>Precision nutrient plan</option></select></label><label class="form-field"><span>Requested timing</span><input type="date" value="2026-09-21" /></label><label class="form-field form-field--wide"><span>Access notes</span><textarea rows="3">Use south access track if dry. Please call before arrival.</textarea></label><button class="text-button" data-action="request-map-correction">Area missing or incorrect? Request a correction</button></div></div></div>
+    <aside class="panel price-panel"><header class="panel__header"><div><h2>2 · Review price & terms</h2><p>Catalogue AGR-2026-09 · selected scope only</p></div></header><div class="panel__body"><div class="selected-scope-card"><small>Order will analyse</small><strong>${selected.label}</strong><span>${selected.hectares} · ${selected.samples} samples · ${selected.id}</span></div><div class="price-lines"><span><small>${selected.samples} samples × £60</small><strong>£${(selected.samples * 60).toLocaleString()}</strong></span><span><small>Field mobilisation</small><strong>£100</strong></span><span><small>Net</small><strong>£${selected.net.toLocaleString()}</strong></span><span><small>VAT · 20%</small><strong>£${selected.vat.toLocaleString()}</strong></span><span class="total"><small>Total</small><strong>£${selected.total.toLocaleString()}</strong></span></div><div class="payment-rule"><strong>25% deposit required</strong><p>£${selected.deposit} through hosted checkout. Remaining balance follows agreed account terms.</p></div><label class="terms-check"><input type="checkbox" checked /> I accept this Area, service scope, displayed price and commercial terms.</label><button class="primary-button full-width" data-action="submit-portal-order">Submit selected Area</button><p class="batch-note">Only the explicitly selected Area is priced. Unselected children, siblings and remainder land are not missing work.</p></div></aside></section>`;
 }
 
 function farmerSupport() {
-  if (state.supportSubmitted) return `${pageHeader("Green Estate portal", "Support request sent", "Your request is open and routed to your current S2L representative.")}
-    <section class="confirmation-panel"><span>✓</span><div><small>SUP-204 · Submitted just now</small><h2>Emma Clarke has been notified</h2><p>Gate access for Thursday return · linked to SO-1046. An in-app alert and SMS delivery intent were created; reading either does not resolve the request.</p><div class="readiness-checklist"><span>✓ In-app request retained</span><span>✓ SMS submitted to verified work number</span><span>○ Awaiting representative response</span></div><button class="secondary-button" data-view="overview">Return home</button></div></section>`;
+  if (state.supportSubmitted) return `${pageHeader("Green Estate portal", "Support request sent", "Your request is open and routed to the responsible permitted user.")}
+    <section class="confirmation-panel"><span>✓</span><div><small>SUP-204 · Submitted just now</small><h2>Emma Clarke has been notified</h2><p>Gate access for Thursday return · linked to SO-1046. The customer-originated alert is web/in-app only; reading it does not resolve the request.</p><div class="readiness-checklist"><span>✓ In-app request retained</span><span>✓ Web-only commercial alert created</span><span>○ Awaiting an authorised response</span></div><button class="secondary-button" data-view="overview">Return home</button></div></section>`;
   return `${pageHeader("Green Estate portal", "Contact support", "Ask your assigned representative about an order, access, service or account issue.")}
-    <section class="support-layout"><div class="panel support-contact"><div class="support-contact__avatar">EC</div><div><span class="eyebrow">Your S2L representative</span><h2>Emma Clarke</h2><p>Regional Account Manager · North region</p><div class="support-contact__details"><span><small>Telephone</small><strong>01225 555 014</strong></span><span><small>Support hours</small><strong>Mon–Fri · 08:00–17:00</strong></span></div></div></div><div class="panel"><header class="panel__header"><div><h2>Send a support request</h2><p>The full request stays inside the authorised portal.</p></div></header><div class="panel__body support-form"><label class="form-field"><span>Topic</span><select><option selected>Access or appointment</option><option>Existing order</option><option>Payment or invoice</option><option>Account access</option><option>Other</option></select></label><label class="form-field"><span>Related order</span><select><option selected>SO-1046 · Autumn Soil Analysis</option><option>General question</option></select></label><label class="form-field form-field--wide"><span>How can we help?</span><textarea rows="5">Can Sarah use the north gate for Thursday's return? The east track may still be waterlogged.</textarea></label><div class="support-privacy"><strong>SMS stays minimal</strong><span>The SMS contains only SUP-204 and a secure sign-in link—not this support text or commercial information.</span></div><button class="primary-button" data-action="submit-support-request">Send support request</button></div></div></section>`;
+    <section class="support-layout"><div class="panel support-contact"><div class="support-contact__avatar">EC</div><div><span class="eyebrow">Your S2L representative</span><h2>Emma Clarke</h2><p>Customer Adviser · North customer scope</p><div class="support-contact__details"><span><small>Telephone</small><strong>01225 555 014</strong></span><span><small>Support hours</small><strong>Mon–Fri · 08:00–17:00</strong></span></div></div></div><div class="panel"><header class="panel__header"><div><h2>Send a support request</h2><p>The full request stays inside the authorised portal.</p></div></header><div class="panel__body support-form"><label class="form-field"><span>Topic</span><select><option selected>Access or appointment</option><option>Existing order</option><option>Payment or invoice</option><option>Account access</option><option>Other</option></select></label><label class="form-field"><span>Related order</span><select><option selected>SO-1046 · Autumn Soil Analysis</option><option>General question</option></select></label><label class="form-field form-field--wide"><span>How can we help?</span><textarea rows="5">Can Sarah use the north gate for Thursday's return? The east track may still be waterlogged.</textarea></label><div class="support-privacy"><strong>Web and in-app only</strong><span>The responsible authorised user receives an in-app alert. No SMS is created for this customer-originated request.</span></div><button class="primary-button" data-action="submit-support-request">Send support request</button></div></div></section>`;
 }
 
 function farmerMaps() {
@@ -649,9 +760,10 @@ function farmerReports() {
 }
 
 function farmerPayments() {
+  const selected = selectedOrderArea();
   return `${pageHeader("Green Estate portal", "Payments & invoices", "Payment state, invoice state and operational progress remain separate.")}
-    <section class="kpi-grid compact-kpis">${kpi("Amount due", state.portalOrderSubmitted && !state.paymentPaid ? "£354" : "£0", state.portalOrderSubmitted && !state.paymentPaid ? "SO-1058 deposit" : "No action required", "#e9a13b")}${kpi("Paid this season", state.paymentPaid ? "£3,314" : "£2,960", "Verified transactions", "#7bbf45")}${kpi("Open invoices", "1", "£1,480 due 2 Oct", "#3979a8")}${kpi("Account terms", "30 days", "Approved customer account", "#7d5b94")}</section>
-    <div class="panel"><div class="table-wrap"><table class="data-table"><thead><tr><th>Reference</th><th>Type</th><th>Amount</th><th>Status</th><th>Meaning</th></tr></thead><tbody>${state.portalOrderSubmitted ? `<tr><td>SO-1058</td><td>25% deposit</td><td class="money">£354</td><td>${status(state.paymentPaid ? "Paid" : "Due",state.paymentPaid ? "green" : "amber")}</td><td>${state.paymentPaid ? "Order released to planning" : "Operational release waiting"}</td></tr>` : ""}<tr><td>INV-2084</td><td>Invoice</td><td class="money">£1,480</td><td>${status("Due 2 Oct","blue")}</td><td>Does not block published report access</td></tr><tr><td>SO-1035</td><td>Account payment</td><td class="money">£2,960</td><td>${status("Paid","green")}</td><td>Reconciled 5 Sep</td></tr></tbody></table></div></div>`;
+    <section class="kpi-grid compact-kpis">${kpi("Amount due", state.portalOrderSubmitted && !state.paymentPaid ? `£${selected.deposit}` : "£0", state.portalOrderSubmitted && !state.paymentPaid ? "SO-1058 deposit" : "No action required", "#e9a13b")}${kpi("Paid this season", state.paymentPaid ? `£${(2960 + selected.deposit).toLocaleString()}` : "£2,960", "Verified transactions", "#7bbf45")}${kpi("Open invoices", "1", "£1,480 due 2 Oct", "#3979a8")}${kpi("Account terms", "30 days", "Approved customer account", "#7d5b94")}</section>
+    <div class="panel"><div class="table-wrap"><table class="data-table"><thead><tr><th>Reference</th><th>Type</th><th>Amount</th><th>Status</th><th>Meaning</th></tr></thead><tbody>${state.portalOrderSubmitted ? `<tr><td>SO-1058</td><td>25% deposit</td><td class="money">£${selected.deposit}</td><td>${status(state.paymentPaid ? "Paid" : "Due",state.paymentPaid ? "green" : "amber")}</td><td>${state.paymentPaid ? "Order released to planning" : "Operational release waiting"}</td></tr>` : ""}<tr><td>INV-2084</td><td>Invoice</td><td class="money">£1,480</td><td>${status("Due 2 Oct","blue")}</td><td>Does not block published report access</td></tr><tr><td>SO-1035</td><td>Account payment</td><td class="money">£2,960</td><td>${status("Paid","green")}</td><td>Reconciled 5 Sep</td></tr></tbody></table></div></div>`;
 }
 
 function financeOverview() {
@@ -674,10 +786,11 @@ function financeReady() {
 }
 
 function financeOrders() {
+  const portalArea = selectedOrderArea();
   return `${pageHeader("Finance · Order ledger", "Orders", "Review the full commercial ledger and understand each order's current billing position.", `<button class="secondary-button">Export ledger</button><button class="primary-button">Reconcile orders</button>`)}
     <section class="kpi-grid compact-kpis">${kpi("Total order value", "£214k", "35 orders this season", "#3979a8")}${kpi("Invoiced", "£143k", "67% of seasonal value", "#7bbf45", "67")}${kpi("Ready", "£48.6k", "8 orders", "#7bbf45")}${kpi("Not ready", "£21.9k", "8 orders · 3 blocked", "#e9a13b")}</section>
     <div class="panel"><header class="panel__header"><div><h2>Commercial order ledger</h2><p>Delivery and billing state across all active orders</p></div><div class="filter-chips"><button class="is-active">All</button><button>Ready 8</button><button>Blocked 3</button><button>Invoiced 19</button></div></header><div class="table-wrap"><table class="data-table"><thead><tr><th>Order</th><th>Customer</th><th>Order value</th><th>Delivery state</th><th>Billing state</th><th>Next action</th></tr></thead><tbody>
-      ${state.portalOrderSubmitted ? `<tr class="new-row"><td><strong>SO-1058</strong><small>Farmer portal</small></td><td><div class="cell-title"><strong>Green Estate</strong><small>Standard soil analysis</small></div></td><td class="money">£1,416</td><td>${status(state.paymentPaid ? "Planning" : "Commercial hold",state.paymentPaid ? "blue" : "amber")}</td><td>${status(state.paymentPaid ? "Deposit reconciled" : "Deposit due",state.paymentPaid ? "green" : "amber")}</td><td><div class="cell-title"><strong>${state.paymentPaid ? "£354 verified" : "Await payment"}</strong><small>Invoice and delivery remain separate</small></div></td></tr>` : ""}
+      ${state.portalOrderSubmitted ? `<tr class="new-row"><td><strong>SO-1058</strong><small>Farmer portal</small></td><td><div class="cell-title"><strong>Green Estate</strong><small>${portalArea.label} · ${portalArea.id}</small></div></td><td class="money">£${portalArea.total.toLocaleString()}</td><td>${status(state.paymentPaid ? "Planning" : "Commercial hold",state.paymentPaid ? "blue" : "amber")}</td><td>${status(state.paymentPaid ? "Deposit reconciled" : "Deposit due",state.paymentPaid ? "green" : "amber")}</td><td><div class="cell-title"><strong>${state.paymentPaid ? `£${portalArea.deposit} verified` : "Await payment"}</strong><small>Invoice and delivery remain separate</small></div></td></tr>` : ""}
       <tr class="new-row"><td><strong>SO-1049</strong><small>Integrated logistics demo</small></td><td><div class="cell-title"><strong>Green Estate</strong><small>Lower Field baseline</small></div></td><td class="money">£1,860</td><td>${status(state.labParcelReconciled ? "Lab receipt partial" : state.outboundHandedOver ? "In transit" : "Sampling complete",state.labParcelReconciled ? "blue" : state.outboundHandedOver ? "blue" : "amber")}</td><td>${status("Waiting for report","amber")}</td><td><div class="cell-title"><strong>Logistics is not invoice approval</strong><small>Pod return remains a separate branch</small></div></td></tr>
       <tr><td><strong>SO-1042</strong></td><td><div class="cell-title"><strong>Smith & Sons</strong><small>Precision Nutrient Plan</small></div></td><td class="money">£8,850</td><td>${status("Delivered","green")}</td><td>${status("Ready","green")}</td><td><button class="text-button">Add to batch</button></td></tr>
       <tr><td><strong>SO-1046</strong></td><td><div class="cell-title"><strong>Green Estate</strong><small>Autumn Soil Analysis</small></div></td><td class="money">£4,200</td><td>${status("64% sampled","amber")}</td><td>${status("Waiting","amber")}</td><td><div class="cell-title"><strong>27 samples outstanding</strong><small>Return planned Thu</small></div></td></tr>
@@ -749,6 +862,103 @@ function labResults() {
     <section class="lab-layout"><div class="panel"><header class="panel__header"><div><h2>SO-1046 · Green Estate</h2><p>Autumn Soil Analysis · Home Farm and East Meadow</p></div>${status(reportState[0],reportState[1])}</header><div class="panel__body"><div class="result-upload-card"><span>PDF</span><div><strong>${state.resultUploaded ? "SO-1046-final-report.pdf" : "Upload the laboratory's approved report file"}</strong><p>${state.resultUploaded ? `Final coverage · version 1 · ${state.reportPublished ? "published to authorised users" : "draft visible to Laboratory only"}` : "The Order supplies customer, Areas, tests and aggregation context; the lab confirms coverage rather than recreating relationships."}</p></div></div>${state.reportPublished ? `<div class="lab-success">✓ Published · Green Estate and permitted staff can view the same report version</div>` : state.resultUploaded ? `<div class="publication-check"><strong>Release check</strong><span>✓ Order and customer confirmed</span><span>✓ Final coverage selected</span><span>✓ File safety check simulated</span><button class="primary-button full-width lab-touch-button" data-action="lab-publish">Publish final report v1</button></div>` : `<button class="primary-button full-width lab-touch-button" data-action="lab-upload">Choose PDF and upload draft</button>`}</div></div><aside class="panel"><header class="panel__header"><div><h2>Order context</h2><p>No relationships need to be recreated</p></div></header><div class="panel__body"><div class="readiness-checklist"><strong>Inherited from SO-1046</strong><span>✓ Requested tests: P, K, Mg, pH</span><span>✓ Reporting Areas: Home Farm, East Meadow</span><span>✓ Aggregation AG-018</span><span>✓ Expected Samples: 75</span></div><div class="version-card"><small>Publication states</small><strong>Uploaded → Published</strong><p>Replacement creates a new version. Superseded or withdrawn files stay in audit history and are not customer-visible.</p></div></div></aside></section>`;
 }
 
+function actionDrivenOverview() {
+  const selected = selectedOrderArea();
+  return `${pageHeader("Alex Morgan · permission-driven workspace", "My work", "One user can perform the complete non-laboratory workflow. Views appear because of actions and scopes—not the display title.", `<button class="secondary-button" data-view="preferences">Notification settings</button><button class="primary-button" data-action="new-order">Prepare order</button>`)}
+    <section class="access-context"><div><span class="avatar" style="background:${roles.all_user.accent}">AM</span><div><small>Signed-in user</small><strong>Alex Morgan</strong><span>Regional Field Lead · display only</span></div></div><div><small>Effective scope</small><strong>S2L Demo Organisation</strong><span>All non-laboratory records</span></div><div><small>Protected authority</small><strong>Master enabled</strong><span>Users, hierarchy and action grants</span></div><div class="standalone-badge"><strong>Standalone S2L</strong><span>No Agrii-system connection required</span></div></section>
+    <section class="action-area-grid">${[
+      ["commercial","C","Customers & commercial","View customers, maintain own work and see colleague ownership"],
+      ["orders","O","Areas & orders","Draft/publish Areas and prepare or submit orders"],
+      ["operations","P","Operations","Schedule, self-assign and allocate eligible equipment"],
+      ["fieldwork","F","Field work","Use the work pack, sample, note and synchronise"],
+      ["dispatch","↔","Shipments & returns","Prepare manifests and act only after readiness gates"],
+      ["commercial-status","£","Commercial status","Review invoice readiness and payment evidence"],
+      ["reports-support","R","Reports & support","View published reports and handle assigned support"],
+      ["access","U","Users, hierarchy & permissions","Configure explicit actions and record scopes"],
+    ].map(([view,icon,title,detail]) => `<button class="action-area-card" data-view="${view}"><span>${icon}</span><div><strong>${title}</strong><small>${detail}</small></div><em>Available</em></button>`).join("")}</section>
+    <section class="dashboard-grid"><div class="panel"><header class="panel__header"><div><h2>One record · complete journey</h2><p>SO-1058 remains the shared reference across permitted work areas</p></div>${status(state.portalOrderSubmitted ? "Order active" : "Ready to prepare",state.portalOrderSubmitted ? "blue" : "green")}</header><div class="panel__body"><div class="action-journey">${[["1","Area & order",state.portalOrderSubmitted],["2","Plan & assign",!!state.assignedOperator],["3","Sample & sync",state.dispatchReconciled],["4","Outward journey",state.outboundHandedOver],["5","Lab handoff",state.labParcelReconciled],["6","Report & close",state.reportPublished]].map(([step,label,done]) => `<span class="${done ? "done" : ""}"><i>${done ? "✓" : step}</i><strong>${label}</strong></span>`).join("")}</div><div class="single-record-summary"><span><small>Selected Area</small><strong>${selected.label}</strong><em>${selected.id} · ${selected.revision}</em></span><span><small>Current responsibility</small><strong>Alex Morgan</strong><em>Assigned explicitly, not inferred from title</em></span><span><small>Next permitted action</small><strong>${state.portalOrderSubmitted ? "Plan eligible work" : "Prepare and submit order"}</strong><em>Workflow prerequisites still apply</em></span></div></div></div><aside class="panel"><header class="panel__header"><div><h2>Three different checks</h2><p>The interface explains why an action cannot proceed</p></div></header><div class="panel__body decision-boundaries"><article><span class="boundary-icon permission">P</span><div><strong>Missing action</strong><p>Emma may view Jacob's quote but cannot edit or transfer it.</p></div></article><article><span class="boundary-icon scope">S</span><div><strong>Outside record scope</strong><p>Sarah cannot see another branch's job details.</p></div></article><article><span class="boundary-icon readiness">G</span><div><strong>Workflow gate</strong><p>Even Alex cannot book collection before sampling and reconciliation pass.</p></div></article></div></aside></section>`;
+}
+
+function actionCommercial() {
+  return `${pageHeader("Permitted actions · organisation commercial records", "Customers & commercial", "Shared visibility protects ownership. Viewing a colleague's opportunity does not grant editing, transfer or private-support access.", `<button class="secondary-button" data-action="add-customer">Add customer</button><button class="primary-button" data-action="new-order">Prepare order</button>`)}
+    <section class="permission-strip"><span><small>Can do</small><strong>View organisation opportunities · maintain own records</strong></span><span><small>Scope</small><strong>S2L Demo Organisation</strong></span><span><small>Separate authority</small><strong>Transfer and pricing approval</strong></span></section>
+    <div class="panel"><header class="panel__header"><div><h2>Shared opportunities & quotes</h2><p>Owner and history remain visible across permitted commercial work</p></div><div class="filter-chips"><button class="is-active">Organisation</button><button>Mine</button></div></header><div class="table-wrap"><table class="data-table"><thead><tr><th>Customer / opportunity</th><th>Owner</th><th>Quote</th><th>Status</th><th>Available action</th></tr></thead><tbody><tr><td><div class="cell-title"><strong>Green Estate · Autumn analysis</strong><small>OPP-204 · North Field and subareas</small></div></td><td><div class="cell-title"><strong>Alex Morgan</strong><small>Created 12 Sep · original actor retained</small></div></td><td class="money">£4,200</td><td>${status("Own record","green")}</td><td><div class="table-actions"><button class="text-button" data-action="customer-detail">Open CRM</button><button class="text-button">Edit quote</button></div></td></tr><tr><td><div class="cell-title"><strong>Smith & Sons · Nutrient plan</strong><small>OPP-198 · permitted shared view</small></div></td><td><div class="cell-title"><strong>Emma Clarke</strong><small>Customer Adviser · title only</small></div></td><td class="money">£8,850</td><td>${status("Colleague-owned","blue")}</td><td><button class="text-button" data-action="blocked-colleague-edit">Request collaboration</button></td></tr><tr><td><div class="cell-title"><strong>Oakridge Farm · duplicate review</strong><small>OPP-211 · possible related work</small></div></td><td><div class="cell-title"><strong>Jacob Reed</strong><small>Ownership protected</small></div></td><td class="money">£3,180</td><td>${status("Review proposed","amber")}</td><td><button class="text-button" data-action="blocked-colleague-edit">Request transfer review</button></td></tr></tbody></table></div><footer class="shared-ownership-note"><strong>Visibility is not takeover authority</strong><span>Changing owner, resolving a conflict and approving a price exception remain separately granted, audited actions.</span></footer></div>`;
+}
+
+function actionOrdersHub() {
+  const selected = selectedOrderArea();
+  return `${pageHeader("Permitted actions · Areas and order preparation", "Areas & orders", "Use approved geography at any level, keep draft and publish actions separate, and retain exact accepted revisions.", `<button class="secondary-button" data-action="area-review-direct">Review Areas</button><button class="primary-button" data-action="new-order">Prepare new order</button>`)}
+    <section class="kpi-grid compact-kpis">${kpi("Open orders","6","Across permitted organisation records","#3979a8")}${kpi("Area drafts",state.orderSubareaSaved && !state.orderSubareaApproved ? "1" : "0","Publication is a separate action","#e9a13b")}${kpi("Awaiting release",state.portalOrderSubmitted && !state.paymentPaid ? "1" : "0","Readiness, not permission","#b46546")}${kpi("Accepted revisions","24","History remains immutable","#7bbf45")}</section><div class="panel"><header class="panel__header"><div><h2>Current order scope</h2><p>The order is the shared reference record</p></div>${status(state.portalOrderSubmitted ? "Submitted" : "Draft",state.portalOrderSubmitted ? "blue" : "grey")}</header><div class="panel__body"><div class="single-record-summary"><span><small>Customer</small><strong>Green Estate</strong><em>Authorised organisation record</em></span><span><small>Sampling Area</small><strong>${selected.label}</strong><em>${selected.id} · ${selected.revision}</em></span><span><small>Commercial state</small><strong>${state.paymentPaid ? "Deposit verified" : "Fixture terms ready"}</strong><em>Separate from operational completion</em></span></div><div class="readiness-checklist"><strong>Permission and workflow remain separate</strong><span>✓ Alex can draft, publish, prepare, submit and release in scope</span><span>✓ Whole parent remains selectable when children exist</span><span>✓ Saving a subarea never selects it for analysis</span><span>— An unmet data or payment hold still blocks release</span></div></div></div>`;
+}
+
+function actionOperations() {
+  return managerOverview()
+    .replace("Field operations · 8 September", "Permitted actions · planning and assignment")
+    .replace("Keep today moving", "Operations")
+    .replace("Plan both sales-assisted and farmer-portal orders, then assign work with decision context preserved.", "Schedule, self-assign and allocate equipment without changing account type or relying on a manager role.");
+}
+
+function actionReportsSupport() {
+  return `${pageHeader("Permitted actions · reports and support", "Reports & support", "Published files, private support and response authority remain independently scoped.")}
+    <section class="dashboard-grid"><div class="panel"><header class="panel__header"><div><h2>Published reports</h2><p>Original files and version coverage</p></div>${status("View permitted","green")}</header><div class="panel__body"><div class="result-upload-card"><span>PDF</span><div><strong>SO-1035 · Spring Nutrient Plan</strong><p>North Holding · final v2 · published 2 September</p></div></div><div class="result-upload-card"><span>PDF</span><div><strong>SO-1046 · Autumn Soil Analysis</strong><p>${state.reportPublished ? "Final v1 · published to authorised users" : "No published file yet · laboratory draft remains hidden"}</p></div></div></div></div><aside class="panel"><header class="panel__header"><div><h2>Assigned support</h2><p>Web-only customer-originated alerts</p></div>${status(state.supportSubmitted ? "1 open" : "No new request",state.supportSubmitted ? "amber" : "grey")}</header><div class="panel__body"><div class="readiness-checklist"><span>✓ Respond to support: permitted customer scope</span><span>✓ Assign/escalate: permitted organisation scope</span><span>✓ Farmer-to-commercial alert: web/in-app only</span><span>— Shared quote visibility does not expose private support text</span></div></div></aside></section>`;
+}
+
+function notificationPreferences() {
+  const labels = { orders:"Order submission & release", assignment:"Scheduling & assignment", sampling:"Sampling progress & completion", logistics:"Collection, transit & returns", lab:"Laboratory receipt", reports:"Report publication", commercial:"Commercial closeout", exceptions:"Exceptions requiring attention" };
+  return `${pageHeader("Personal settings · within current access", "Process notifications", "Choose applicable process steps. Preferences do not create access, remove responsibility or change workflow state.")}
+    <section class="preferences-layout"><div class="panel"><header class="panel__header"><div><h2>Alex Morgan's subscriptions</h2><p>All non-laboratory scope · proposed defaults</p></div>${status("Web first","blue")}</header><div class="notification-preferences">${Object.entries(labels).map(([key,label]) => `<label><span><strong>${label}</strong><small>${key === "orders" ? "Farmer-to-commercial events remain web-only" : key === "exceptions" ? "Mandatory treatment still to agree" : "Current permitted records only"}</small></span><input type="checkbox" data-notification-preference="${key}" ${state.notificationPreferences[key] ? "checked" : ""} /></label>`).join("")}</div></div><aside class="stack"><div class="panel"><header class="panel__header"><div><h2>Channel boundary</h2><p>Preferences cannot invent a supported channel</p></div></header><div class="panel__body"><div class="readiness-checklist"><span>✓ Farmer order/support → commercial: web only</span><span>✓ Phone verification: separate one-time SMS</span><span>✓ Operational SMS: only agreed eligible events</span><span>— Muting never hides order or exception history</span></div></div></div><div class="panel"><div class="panel__body"><div class="open-policy"><strong>Still open with Agrii</strong><p>Defaults, mandatory alerts, quiet hours, digests, self-notifications, fallback recipients and escalation timing.</p></div></div></div></aside></section>`;
+}
+
+function hierarchyPerson(person, className = "") {
+  return `<div class="hierarchy-person ${className}"><span>${person.initials}</span><div><strong>${person.name}</strong><small>${person.title} · display title</small></div></div>`;
+}
+
+function hierarchyTeam(manager, members) {
+  return `<section class="hierarchy-team"><div class="hierarchy-manager"><span>${manager.initials}</span><div><strong>${manager.name}</strong><small>${manager.title} · display title</small></div><em>${members.length} operators</em></div><div class="hierarchy-operators">${members.map(member => hierarchyPerson(member, member.focused ? "is-focused" : "")).join("")}</div></section>`;
+}
+
+function organisationHierarchy() {
+  const sarah = { initials: "SL", name: "Sarah Lewis", title: state.sarahDisplayTitle, focused: true };
+  const northSarah = state.sarahBranch.endsWith("North") ? [sarah] : [];
+  const southSarah = state.sarahBranch.endsWith("South") ? [sarah] : [];
+  const branches = [
+    {
+      scope: "Operations · North",
+      code: "NORTH",
+      director: { initials: "FH", name: "Fiona Hale", title: "Regional Director" },
+      teams: [
+        { manager: { initials: "DW", name: "Daniel Wright", title: "Sampling Manager" }, members: [...northSarah, { initials: "JR", name: "Jacob Reed", title: "Field Operator" }, { initials: "CB", name: "Chloe Bennett", title: "Field Operator" }] },
+        { manager: { initials: "EC", name: "Emma Clarke", title: "Area Manager" }, members: [{ initials: "LM", name: "Louis Morgan", title: "Field Operator" }, { initials: "GS", name: "Grace Singh", title: "Field Operator" }] },
+      ],
+    },
+    {
+      scope: "Operations · South",
+      code: "SOUTH",
+      director: { initials: "MC", name: "Marcus Cole", title: "Regional Director" },
+      teams: [
+        { manager: { initials: "LH", name: "Leila Hassan", title: "Sampling Manager" }, members: [...southSarah, { initials: "OP", name: "Owen Price", title: "Field Operator" }, { initials: "NE", name: "Nia Evans", title: "Field Operator" }, { initials: "IK", name: "Imran Khan", title: "Field Operator" }] },
+        { manager: { initials: "PS", name: "Priya Shah", title: "Area Manager" }, members: [{ initials: "JW", name: "Jack Wood", title: "Field Operator" }, { initials: "MR", name: "Maria Rossi", title: "Field Operator" }] },
+      ],
+    },
+    {
+      scope: "Laboratory",
+      code: "LAB",
+      director: { initials: "MP", name: "Maya Patel", title: "Laboratory Director" },
+      teams: [
+        { manager: { initials: "BW", name: "Ben Ward", title: "Laboratory Manager" }, members: [{ initials: "AD", name: "Arun Das", title: "Laboratory Operator" }, { initials: "LK", name: "Lily King", title: "Laboratory Operator" }] },
+      ],
+    },
+  ];
+  return `<section class="panel organisation-hierarchy"><header class="panel__header hierarchy-heading"><div><span class="eyebrow">Demonstration organisation</span><h2>Three director branches with delegated teams</h2><p>Titles explain the organisation. Actions and record scope still determine what each user can see and do.</p></div><div class="hierarchy-counts"><span><strong>3</strong> directors</span><span><strong>5</strong> managers</span><span><strong>12</strong> operators</span></div></header><div class="panel__body"><div class="hierarchy-root"><span>AM</span><div><small>Protected access authority</small><strong>Alex Morgan</strong><em>Master · S2L Demo Organisation</em></div></div><div class="hierarchy-directors">${branches.map(branch => `<article class="hierarchy-branch ${branch.scope === "Laboratory" ? "is-lab" : ""}"><header><div class="hierarchy-director-avatar">${branch.director.initials}</div><div><small>${branch.code} DIRECTOR BRANCH</small><strong>${branch.director.name}</strong><span>${branch.director.title} · display title</span></div></header><div class="hierarchy-branch-scope">Scope anchor · ${branch.scope}</div><div class="hierarchy-teams">${branch.teams.map(team => hierarchyTeam(team.manager, team.members)).join("")}</div></article>`).join("")}</div><div class="hierarchy-legend"><span><i class="title-dot"></i> Titles describe position</span><span><i class="scope-dot"></i> Hierarchy defines possible scope</span><span><i class="action-dot"></i> Explicit actions enable controls</span></div></div></section>`;
+}
+
+function masterAccess() {
+  const title = state.sarahDisplayTitle;
+  return `${pageHeader("Protected Master authority", "Users, hierarchy & permissions", "Configure identity, hierarchy, actions and record scopes side by side. Display titles never grant access.", `<button class="secondary-button">Access audit</button><button class="primary-button">Invite user</button>`)}
+    ${organisationHierarchy()}
+    <section class="access-editor"><aside class="panel hierarchy-path-panel"><header class="panel__header"><div><h2>Selected hierarchy path</h2><p>Sarah Lewis · USER-018</p></div></header><div class="panel__body"><div class="hierarchy-path"><span><small>Organisation</small><strong>S2L Demo Organisation</strong></span><i>↓</i><span><small>Director branch</small><strong>${state.sarahBranch}</strong></span><i>↓</i><span><small>Line manager</small><strong>${state.sarahBranch.endsWith("North") ? "Daniel Wright" : "Leila Hassan"}</strong></span><i>↓</i><span class="is-current"><small>Selected user</small><strong>Sarah Lewis</strong></span></div><div class="hierarchy-rule"><strong>Moving a user</strong><p>Re-evaluates descendant-scoped records. It never copies another user's actions, permissions or work history.</p></div></div></aside><div class="stack"><div class="panel"><header class="panel__header"><div><span class="eyebrow">Selected user</span><h2>Sarah Lewis</h2><p>Identity USER-018 · title can change without changing access</p></div>${status(state.sarahPlanningGranted ? "Field + planning actions" : "Field actions only",state.sarahPlanningGranted ? "blue" : "grey")}</header><div class="panel__body"><div class="identity-permission-grid"><label class="form-field"><span>Optional display title</span><input value="${title}" readonly /></label><div><small>Hierarchy position</small><strong>${state.sarahBranch} · reports to ${state.sarahBranch.endsWith("North") ? "Daniel" : "Leila"}</strong><span>Moving branch recomputes scoped records; it does not copy permissions</span></div></div><div class="permission-action-list"><article class="is-granted"><span>✓</span><div><strong>Perform sampling</strong><small>Scope · own assigned jobs</small></div><em>Granted</em></article><article class="is-granted"><span>✓</span><div><strong>Record notes & request sync</strong><small>Scope · own assigned jobs</small></div><em>Granted</em></article><article class="${state.sarahPlanningGranted ? "is-granted" : ""}"><span>${state.sarahPlanningGranted ? "✓" : "○"}</span><div><strong>Schedule & assign work</strong><small>Scope · ${state.sarahBranch} including descendants</small></div><em>${state.sarahPlanningGranted ? "Granted" : "Not granted"}</em></article><article><span>○</span><div><strong>Change user permissions</strong><small>Protected Master authority</small></div><em>Not granted</em></article></div><div class="access-editor-actions"><button class="secondary-button" data-action="rename-sarah-title">${title === "Master" ? "Restore display title" : "Rename title to Master"}</button><button class="secondary-button" data-action="move-sarah-branch">Move to ${state.sarahBranch.endsWith("North") ? "South" : "North"} branch</button><button class="primary-button" data-action="toggle-sarah-planning">${state.sarahPlanningGranted ? "Remove planning action" : "Grant planning action"}</button></div><p class="batch-note">Preview: ${title === "Master" ? "The word Master grants nothing. " : ""}${state.sarahPlanningGranted ? `Planning appears for ${state.sarahBranch}; sampling remains unchanged.` : "Planning is absent for Sarah; her title is not the reason."}</p></div></div><div class="panel"><header class="panel__header"><div><h2>Effective-access preview</h2><p>Different failure reasons remain visible</p></div></header><div class="panel__body decision-boundaries horizontal"><article><span class="boundary-icon permission">P</span><div><strong>Missing action</strong><p>No permission-management control—even if her title says Master.</p></div></article><article><span class="boundary-icon scope">S</span><div><strong>Record scope</strong><p>Assigned jobs${state.sarahPlanningGranted ? ` + ${state.sarahBranch}` : " only"}.</p></div></article><article><span class="boundary-icon readiness">G</span><div><strong>Mandatory gates</strong><p>Sampling, sync and custody rules still apply.</p></div></article></div></div></div></div></section>`;
+}
+
 function genericView() {
   const role = roles[state.role];
   const item = role.nav.find(entry => entry[0] === state.view);
@@ -757,28 +967,55 @@ function genericView() {
   return `${pageHeader(roleName, label, `This supporting ${label.toLowerCase()} view is represented in the stakeholder prototype navigation.`)}<div class="panel"><div class="empty-state"><div class="empty-state__icon">${item ? item[1] : "•"}</div><h2>${label}</h2><p>The main demonstration focuses on the highest-value role workflow. Return to the overview to continue the end-to-end flooding and delivery scenario.</p><button class="primary-button" data-action="overview" style="margin-top:17px">Return to overview</button></div></div>`;
 }
 
+function actionLabelled(html) {
+  return html
+    .replaceAll("Sales ·", "Commercial actions ·")
+    .replaceAll("Operator ·", "Assigned work ·")
+    .replaceAll("Sales Manager", "authorised ownership reviewer")
+    .replaceAll("Sampling Manager", "planning authority");
+}
+
 function render() {
   if (state.role === "farmer" && !state.farmerLoggedIn && !["login", "register"].includes(state.view)) state.view = "login";
   if (state.role === "farmer" && !state.farmerLoggedIn) state.notificationPanelOpen = false;
   document.body.classList.toggle("auth-mode", state.role === "farmer" && !state.farmerLoggedIn && ["login", "register"].includes(state.view));
   const role = roles[state.role];
-  nav.innerHTML = role.nav.map(([id, icon, label, count]) => `<button class="nav-button ${state.view === id ? "is-active" : ""}" type="button" data-view="${id}"><span class="nav-button__icon">${icon}</span><span>${label}</span>${count ? `<span class="nav-button__count">${count}</span>` : ""}</button>`).join("");
+  const actorNav = [...role.nav];
+  if (state.role === "operator" && state.sarahPlanningGranted) actorNav.splice(2, 0, ["schedule", "P", "Planning"]);
+  nav.innerHTML = actorNav.map(([id, icon, label, count]) => `<button class="nav-button ${state.view === id ? "is-active" : ""}" type="button" data-view="${id}"><span class="nav-button__icon">${icon}</span><span>${label}</span>${count ? `<span class="nav-button__count">${count}</span>` : ""}</button>`).join("");
   const farmerEntry = state.role === "farmer" && !state.farmerLoggedIn;
   document.querySelector("#user-name").textContent = farmerEntry ? "Farmer portal" : role.name;
-  document.querySelector("#user-role").textContent = farmerEntry ? "Sign in or register" : role.title;
+  document.querySelector("#user-role").textContent = farmerEntry ? "Sign in or register" : state.role === "operator" ? `${state.sarahDisplayTitle} · display only` : role.title;
   const avatar = document.querySelector("#user-avatar");
   avatar.textContent = farmerEntry ? "FP" : role.initials;
   avatar.style.background = role.accent;
-  noteFab.hidden = state.role !== "operator";
+  noteFab.hidden = !hasAction("notes");
 
   if (state.view === "profile") main.innerHTML = userProfile();
-  else if (state.role === "sales" && state.view === "overview") main.innerHTML = salesOverview();
+  else if (state.role === "all_user" && state.view === "overview") main.innerHTML = actionDrivenOverview();
+  else if (state.role === "all_user" && state.view === "commercial") main.innerHTML = actionCommercial();
+  else if (state.role === "all_user" && state.view === "customers" && state.customerDetail) main.innerHTML = salesCustomerDetail();
+  else if (state.role === "all_user" && state.view === "customers") main.innerHTML = salesCustomers();
+  else if (state.role === "all_user" && state.view === "orders") main.innerHTML = actionOrdersHub();
+  else if (state.role === "all_user" && state.view === "new-order") main.innerHTML = salesNewOrder();
+  else if (state.role === "all_user" && state.view === "operations") main.innerHTML = actionOperations();
+  else if (state.role === "all_user" && state.view === "fieldwork") main.innerHTML = operatorOverview().replace("Operator ·", "Assigned work ·").replaceAll("Sarah Lewis", "Alex Morgan").replaceAll("Sarah", "Alex").replaceAll(">SL<", ">AM<");
+  else if (state.role === "all_user" && state.view === "dispatch") main.innerHTML = operatorDispatch().replace("Operator ·", "Permitted logistics ·");
+  else if (state.role === "all_user" && state.view === "shipments") main.innerHTML = operatorShipments().replace("Operator ·", "Permitted logistics ·");
+  else if (state.role === "all_user" && state.view === "reports-support") main.innerHTML = actionReportsSupport();
+  else if (state.role === "all_user" && state.view === "commercial-status") main.innerHTML = financeOverview();
+  else if (state.role === "all_user" && state.view === "ready") main.innerHTML = financeReady();
+  else if (state.role === "all_user" && state.view === "preferences") main.innerHTML = notificationPreferences();
+  else if (state.role === "all_user" && state.view === "access") main.innerHTML = masterAccess();
+  else if (state.role === "all_user" && state.view === "areas") main.innerHTML = managerAreas();
+  else if (state.role === "sales" && state.view === "overview") main.innerHTML = actionLabelled(salesOverview());
   else if (state.role === "sales" && state.view === "customers" && state.customerDetail) main.innerHTML = salesCustomerDetail();
-  else if (state.role === "sales" && state.view === "customers") main.innerHTML = salesCustomers();
-  else if (state.role === "sales" && state.view === "orders") main.innerHTML = salesOrders();
-  else if (state.role === "sales" && state.view === "unassigned") main.innerHTML = salesUnassigned();
-  else if (state.role === "sales" && state.view === "support") main.innerHTML = salesSupport();
-  else if (state.role === "sales" && state.view === "areas") main.innerHTML = salesAreas();
+  else if (state.role === "sales" && state.view === "customers") main.innerHTML = actionLabelled(salesCustomers());
+  else if (state.role === "sales" && state.view === "orders") main.innerHTML = actionLabelled(salesOrders());
+  else if (state.role === "sales" && state.view === "new-order") main.innerHTML = salesNewOrder();
+  else if (state.role === "sales" && state.view === "unassigned") main.innerHTML = actionLabelled(salesUnassigned());
+  else if (state.role === "sales" && state.view === "support") main.innerHTML = actionLabelled(salesSupport());
+  else if (state.role === "sales" && state.view === "areas") main.innerHTML = actionLabelled(salesAreas());
   else if (state.role === "sales_manager" && ["overview", "team", "customers", "orders"].includes(state.view)) main.innerHTML = salesManagerOverview();
   else if (state.role === "sales_manager" && state.view === "unassigned") main.innerHTML = salesManagerUnassigned();
   else if (state.role === "sales_manager" && state.view === "claims") main.innerHTML = salesManagerClaims();
@@ -788,9 +1025,10 @@ function render() {
   else if (state.role === "manager" && state.view === "operators") main.innerHTML = managerOperators();
   else if (state.role === "manager" && state.view === "logistics") main.innerHTML = managerLogistics();
   else if (state.role === "manager" && state.view === "areas") main.innerHTML = managerAreas();
-  else if (state.role === "operator" && state.view === "overview") main.innerHTML = operatorOverview();
-  else if (state.role === "operator" && state.view === "dispatch") main.innerHTML = operatorDispatch();
-  else if (state.role === "operator" && state.view === "shipments") main.innerHTML = operatorShipments();
+  else if (state.role === "operator" && state.view === "overview") main.innerHTML = actionLabelled(operatorOverview());
+  else if (state.role === "operator" && state.view === "schedule" && state.sarahPlanningGranted) main.innerHTML = managerSchedule().replace("Operations ·", "Permitted planning ·");
+  else if (state.role === "operator" && state.view === "dispatch") main.innerHTML = actionLabelled(operatorDispatch());
+  else if (state.role === "operator" && state.view === "shipments") main.innerHTML = actionLabelled(operatorShipments());
   else if (state.role === "admin" && state.view === "overview") main.innerHTML = adminOverview();
   else if (state.role === "admin" && state.view === "maps") main.innerHTML = adminMaps();
   else if (state.role === "admin" && state.view === "users") main.innerHTML = adminUsers();
@@ -827,6 +1065,11 @@ function showToast(message) {
 }
 
 function openNoteModal() {
+  const participant = roles[state.role]?.name || "Current user";
+  const participantNode = document.querySelector("#note-actual-participant");
+  const recorderNode = document.querySelector("#note-recorder");
+  if (participantNode) participantNode.textContent = participant;
+  if (recorderNode) recorderNode.textContent = participant;
   if (typeof noteModal.showModal === "function") noteModal.showModal();
 }
 
@@ -869,6 +1112,9 @@ main.addEventListener("click", event => {
   const actionControl = event.target.closest("[data-action]");
   const action = actionControl?.dataset.action;
   if (!action) return;
+  if (action === "log-interaction") interactionModal.showModal();
+  if (action === "activity-timeline") { state.customerActivityView = "timeline"; render(); }
+  if (action === "activity-table") { state.customerActivityView = "table"; render(); }
   if (action === "phone-change") { state.pendingPhoneNumber = ""; state.phoneVerificationError = null; state.phoneSetupStep = "number"; render(); }
   if (action === "phone-cancel") { state.pendingPhoneNumber = ""; state.phoneVerificationError = null; state.phoneSetupStep = "summary"; render(); }
   if (action === "phone-send-failure") { state.phoneVerificationError = "sending"; render(); }
@@ -937,10 +1183,24 @@ main.addEventListener("click", event => {
   if (action === "overview") { state.view = "overview"; render(); }
   if (action === "assign") openAssignmentModal();
   if (action === "note") openNoteModal();
-  if (action === "new-order") workOrderModal.showModal();
+  if (action === "new-order") { state.view = "new-order"; render(); }
   if (action === "add-customer") customerModal.showModal();
   if (action === "add-area") areaModal.showModal();
-  if (action === "propose-area") showToast("Missing geography proposed; Admin and Sampling Manager will validate it before use.");
+  if (action === "order-add-subarea") { state.orderSubareaRequestedBy = state.role === "all_user" ? "Alex Morgan · permitted order preparation" : state.role === "sales" ? "Emma Clarke · staff-assisted order" : "Tom Green · customer self-service"; subareaModal.showModal(); }
+  if (action === "select-order-area") {
+    const requestedArea = actionControl.dataset.area;
+    if (requestedArea === "upper-west" && !state.orderSubareaApproved) showToast("This draft Area must be approved before it can be selected.");
+    else { state.orderAreaSelection = requestedArea; render(); showToast(`${selectedOrderArea().label} selected. Only this explicit scope is priced.`); }
+  }
+  if (action === "view-area-approval") { state.orderPreparationRole = state.role; if (state.role !== "all_user") { state.role = "all_user"; roleSelect.value = "all_user"; } state.view = "areas"; render(); showToast("Order draft preserved. The publish control appears because this user has the action and scope."); }
+  if (action === "area-review-direct") { state.orderPreparationRole = state.role; state.view = "areas"; render(); }
+  if (action === "approve-order-subarea") { state.orderSubareaApproved = true; render(); showToast("AREA-221 approved and published. It is reusable but not automatically selected for the order."); }
+  if (action === "return-order-preparation") { state.role = state.orderPreparationRole; roleSelect.value = state.role; if (state.role === "farmer") state.farmerLoggedIn = true; state.view = "new-order"; render(); showToast("Returned to the preserved order draft. Choose the approved Area explicitly if required."); }
+  if (action === "blocked-colleague-edit") showToast("Viewing is permitted; editing or ownership transfer needs a separate granted action.");
+  if (action === "toggle-sarah-planning") { state.sarahPlanningGranted = !state.sarahPlanningGranted; render(); showToast(`Sarah's planning action ${state.sarahPlanningGranted ? "granted" : "removed"}. Her title and field permissions did not change.`); }
+  if (action === "rename-sarah-title") { state.sarahDisplayTitle = state.sarahDisplayTitle === "Master" ? "Field Technician" : "Master"; render(); showToast("Display title changed. Effective actions, scope and Master authority are unchanged."); }
+  if (action === "move-sarah-branch") { state.sarahBranch = state.sarahBranch.endsWith("North") ? "Operations · South" : "Operations · North"; render(); showToast("Hierarchy branch changed. Descendant-scoped records were recomputed; permissions and work history were not copied or rewritten."); }
+  if (action === "propose-area") showToast("Missing geography proposed; users with geography validation access will review it before use.");
   if (action === "admin-maps") { state.view = "maps"; render(); }
   if (action === "publish-boundary") { state.boundaryPublished = true; render(); showToast("East Meadow boundary v4 published with its reason and impact history."); }
   if (action === "farmer-new-order") { state.view = "new-order"; render(); }
@@ -951,21 +1211,32 @@ main.addEventListener("click", event => {
   if (action === "farmer-logout") { state.farmerLoggedIn = false; state.view = "login"; render(); showToast("Signed out of the Farmer portal demo."); }
   if (action === "farmer-orders") { state.view = "orders"; render(); }
   if (action === "farmer-reports") { state.view = "reports"; render(); }
-  if (action === "request-map-correction") showToast("Correction request sent to Admin and Sampling Manager; the map stays read-only.");
+  if (action === "request-map-correction") showToast("Correction request sent to users with the required geography action and scope; the map stays read-only.");
   if (action === "submit-portal-order") {
+    const selected = selectedOrderArea();
     state.portalOrderSubmitted = true;
-    addNotification({ id: "order-so-1058-submitted-manager", audience: "manager", type: "order", reference: "SO-1058", title: "New Farmer-portal order", customer: "Green Estate", detail: "Standard soil analysis · East Meadow · requested 21 Sep", readiness: "Awaiting £354 deposit · do not schedule", source: "Farmer portal", time: "Just now", smsStatus: "submitted", actionLabel: "Open order" });
-    addNotification({ id: "order-so-1058-submitted-sales", audience: "sales", type: "order", reference: "SO-1058", title: "Your customer submitted an order", customer: "Green Estate", detail: "Farmer portal · East Meadow · no Sales approval required", readiness: "Customer support visibility · payment pending", source: "Farmer portal", time: "Just now", smsStatus: "submitted", actionLabel: "Open customer order" });
+    addNotification({ id: "order-so-1058-submitted-manager", audience: "manager", type: "order", reference: "SO-1058", title: "New Farmer-portal order", customer: "Green Estate", detail: `Standard soil analysis · ${selected.label} · ${selected.id} · requested 21 Sep`, readiness: `Awaiting £${selected.deposit} deposit · do not schedule`, source: "Farmer portal", time: "Just now", smsStatus: "submitted", actionLabel: "Open order" });
+    addNotification({ id: "order-so-1058-submitted-sales", audience: "sales", type: "order", reference: "SO-1058", title: "Your customer submitted an order", customer: "Green Estate", detail: `Customer portal · ${selected.label} · no commercial approval required`, readiness: "Customer support visibility · payment pending", source: "Customer portal · web notification", time: "Just now", actionLabel: "Open customer order" });
+    addNotification({ id: "order-so-1058-submitted-all-user", audience: "all_user", type: "order", reference: "SO-1058", title: "New customer order in your responsibility", customer: "Green Estate", detail: `${selected.label} · one in-app record for Alex's combined duties`, readiness: `Awaiting £${selected.deposit} deposit · do not schedule`, source: "Customer portal · operational responsibility", time: "Just now", smsStatus: "submitted", actionLabel: "Open order" });
     state.view = "new-order";
     render();
-    showToast("SO-1058 submitted. Operations and Emma each have in-app and SMS delivery records.");
+    showToast("SO-1058 submitted. Operations has its configured alert; Emma's customer-originated alert is web-only.");
+  }
+  if (action === "submit-sales-order") {
+    const selected = selectedOrderArea();
+    state.workOrderCreated = true;
+    addNotification({ id: "order-so-1056-submitted", audience: "manager", type: "order", reference: "SO-1056", title: "New sales-assisted order", customer: "Green Estate", detail: `Standard soil analysis · ${selected.label} · ${selected.id} · requested 24 Sep`, readiness: "Ready for planning review", source: "Sales-assisted", time: "Just now", smsStatus: "submitted", actionLabel: "Open order" });
+    state.view = "orders";
+    render();
+    showToast("SO-1056 created with its Area hierarchy and geometry revision frozen for Operations.");
   }
   if (action === "submit-support-request") {
     state.supportSubmitted = true;
-    addNotification({ id: "support-sup-204-sales", audience: "sales", type: "support", reference: "SUP-204", title: "New Farmer support request", customer: "Green Estate", detail: "Access question linked to SO-1046 · full text remains in S2L", readiness: "Open · response required", source: "Farmer portal", time: "Just now", smsStatus: "submitted", actionLabel: "Open support request" });
+    addNotification({ id: "support-sup-204-sales", audience: "sales", type: "support", reference: "SUP-204", title: "New customer support request", customer: "Green Estate", detail: "Access question linked to SO-1046 · full text remains in S2L", readiness: "Open · response required", source: "Customer portal · web only", time: "Just now", actionLabel: "Open support request" });
+    addNotification({ id: "support-sup-204-all-user", audience: "all_user", type: "support", reference: "SUP-204", title: "New customer support request", customer: "Green Estate", detail: "Assigned to Alex's permitted customer scope · full text remains in S2L", readiness: "Open · response required", source: "Customer portal · web only", time: "Just now", actionLabel: "Open support request" });
     state.view = "support";
     render();
-    showToast("SUP-204 sent to Emma Clarke by in-app alert and simulated SMS.");
+    showToast("SUP-204 sent to Emma Clarke through the S2L web inbox only.");
   }
   if (action === "claim-farmer") {
     state.unassignedClaimSubmitted = true;
@@ -986,7 +1257,7 @@ main.addEventListener("click", event => {
     render();
     showToast("Claim rejected. Meadowbrook remains in the unassigned pool with fallback support.");
   }
-  if (action === "demo-payment") { state.paymentPaid = true; render(); showToast("Demo deposit verified; SO-1058 released to Operations planning."); }
+  if (action === "demo-payment") { state.paymentPaid = true; render(); showToast(`Demo deposit of £${selectedOrderArea().deposit} verified; SO-1058 released to Operations planning.`); }
   if (action === "smart-case") {
     showToast("SC-008 captures independently offline; S2L reconciles Samples to work after sync.");
   }
@@ -999,6 +1270,13 @@ main.addEventListener("click", event => {
   if (action === "lab-publish") { state.reportPublished = true; render(); showToast("Final report v1 published to authorised Green Estate users."); }
   if (action === "view-report") showToast("Report preview opened · original PDF remains available to download.");
   if (action === "resolve-match") showToast("Sample S8344 linked to JOB-147; original Case evidence remains unchanged.");
+});
+
+main.addEventListener("change", event => {
+  const preference = event.target.dataset.notificationPreference;
+  if (!preference) return;
+  state.notificationPreferences[preference] = event.target.checked;
+  showToast(`${event.target.checked ? "Enabled" : "Muted"} ${preference} notifications. Access, responsibility and workflow history are unchanged.`);
 });
 
 document.querySelector("#menu-button").addEventListener("click", () => document.querySelector(".sidebar").classList.toggle("is-open"));
@@ -1040,7 +1318,10 @@ notificationPanel.addEventListener("click", event => {
     if (!notification) return;
     notification.read = true;
     state.notificationPanelOpen = false;
-    if (notification.type === "support") state.view = "support";
+    if (state.role === "all_user" && notification.type === "support") state.view = "reports-support";
+    else if (state.role === "all_user" && notification.type === "order") state.view = "orders";
+    else if (state.role === "all_user" && notification.type === "assignment") state.view = "fieldwork";
+    else if (notification.type === "support") state.view = "support";
     else if (notification.type === "claim") state.view = "claims";
     else if (notification.type === "account") state.view = "unassigned";
     else state.view = "overview";
@@ -1084,7 +1365,16 @@ document.querySelector("#note-form").addEventListener("submit", event => {
   state.noteSaved = true;
   noteModal.close();
   render();
-  showToast("Field note shared with Operations and Sales.");
+  showToast("Field note preserved. Confirmed CRM interaction and operational-event records were linked without duplicating the original note.");
+});
+
+document.querySelector("#interaction-form").addEventListener("submit", event => {
+  event.preventDefault();
+  state.interactionSaved = true;
+  state.customerActivityView = "timeline";
+  interactionModal.close();
+  render();
+  showToast("Interaction recorded with participants, occurrence time, purpose, linked work, follow-up and recorder provenance.");
 });
 
 document.querySelector("#operator-options").addEventListener("change", event => {
@@ -1099,12 +1389,13 @@ document.querySelector("#operator-options").addEventListener("change", event => 
 document.querySelector("#assignment-form").addEventListener("submit", event => {
   event.preventDefault();
   const chosen = operators.find(operator => operator.id === state.selectedOperator);
+  const assigningUser = roles[state.role]?.name || "Authorised user";
   state.notifications.filter(notification => notification.type === "assignment" && notification.reference === "JOB-145").forEach(notification => { notification.active = false; });
   state.assignedOperator = chosen.name;
-  addNotification({ id: `assignment-job-145-${chosen.id}`, audience: "operator", assignee: chosen.name, type: "assignment", reference: "JOB-145", title: "Job assigned to you", customer: "Westcombe Farms", detail: `Westcombe Farm · 11 Sep 09:00 · assigned by ${roles.manager.name}`, readiness: "Assigned · not yet accepted or started", source: "Sampling Manager", time: "Just now", smsStatus: "submitted", active: true, actionLabel: "View job details" });
+  addNotification({ id: `assignment-job-145-${chosen.id}`, audience: chosen.id === "alex" ? "all_user" : "operator", assignee: chosen.name, type: "assignment", reference: "JOB-145", title: "Job assigned to you", customer: "Westcombe Farms", detail: `Westcombe Farm · 11 Sep 09:00 · assigned by ${assigningUser}`, readiness: "Assigned · not yet accepted or started", source: "Explicit work assignment", time: "Just now", smsStatus: "submitted", active: true, actionLabel: "View job details" });
   assignmentModal.close();
   render();
-  showToast(`JOB-145 assigned to ${chosen.name}. In-app and simulated SMS delivery records were created.`);
+  showToast(`JOB-145 assigned to ${chosen.name}. Eligibility, responsibility and notification evidence remain separate.`);
 });
 
 document.querySelector("#work-order-form").addEventListener("submit", event => {
@@ -1116,7 +1407,7 @@ document.querySelector("#work-order-form").addEventListener("submit", event => {
   state.view = "orders";
   workOrderModal.close();
   render();
-  showToast("SO-1056 created. The Sampling Manager has in-app and simulated SMS delivery records.");
+  showToast("SO-1056 created. Responsible planning users have in-app and simulated eligible-channel delivery records.");
 });
 
 document.querySelector("#customer-form").addEventListener("submit", event => {
@@ -1134,6 +1425,15 @@ document.querySelector("#area-form").addEventListener("submit", event => {
   state.view = "areas";
   render();
   showToast("South Paddock added to Green Estate → Home Farm.");
+});
+
+document.querySelector("#subarea-form").addEventListener("submit", event => {
+  event.preventDefault();
+  state.orderSubareaSaved = true;
+  state.orderSubareaApproved = false;
+  subareaModal.close();
+  render();
+  showToast("Draft subarea saved for Operations review. It was not selected and the order price did not change.");
 });
 
 render();
