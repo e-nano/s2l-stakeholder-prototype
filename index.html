@@ -4,21 +4,20 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#153f32" />
-    <title>Agrii Field Services — Stakeholder Prototype</title>
-    <link rel="stylesheet" href="styles.css?v=3" />
+    <title>S2L Field Services — Stakeholder Prototype</title>
+    <link rel="stylesheet" href="styles.css?v=12" />
   </head>
   <body>
     <div class="demo-banner">
       <span>Stakeholder prototype</span>
-      <span class="demo-banner__hint">Demo data · Nothing is saved</span>
+      <span class="demo-banner__hint">v0.9.3 integrated logistics journey · Demo data · Nothing is saved</span>
     </div>
 
     <div class="app-shell">
       <aside class="sidebar" aria-label="Primary navigation">
-        <a class="brand" href="#" aria-label="Agrii Field Services home">
-          <span class="brand__mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <a class="brand" href="#" aria-label="S2L Field Services home">
           <span>
-            <strong>agrii</strong>
+            <strong>S2L</strong>
             <small>Field Services</small>
           </span>
         </a>
@@ -30,38 +29,53 @@
             <span class="support-link__icon">?</span>
             <span><strong>Need help?</strong><small>Field support centre</small></span>
           </div>
-          <div class="powered-by">Powered by <strong>S2L</strong></div>
+          <div class="powered-by">Stakeholder prototype</div>
         </div>
       </aside>
 
       <section class="workspace">
         <header class="topbar">
           <button class="icon-button menu-button" id="menu-button" type="button" aria-label="Open navigation">☰</button>
-          <div class="mobile-brand">agrii <span>Field Services</span></div>
+          <div class="mobile-brand">S2L <span>Field Services</span></div>
           <label class="role-switcher">
             <span>Viewing as</span>
             <select id="role-select" aria-label="Switch demo role">
               <option value="sales">Sales</option>
+              <option value="sales_manager">Sales Manager</option>
               <option value="manager">Sampling Manager</option>
               <option value="operator">Operator</option>
-              <option value="finance">Finance / Admin</option>
+              <option value="admin">Admin</option>
+              <option value="farmer">Farmer</option>
+              <option value="finance">Finance</option>
               <option value="lab">Laboratory</option>
             </select>
           </label>
           <div class="topbar__actions">
-            <button class="icon-button notification-button" type="button" aria-label="Notifications">
-              <span aria-hidden="true">●</span>
+            <button class="icon-button notification-button" id="notification-button" type="button" aria-label="Open notifications" aria-expanded="false" aria-controls="notification-panel">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
+              <span class="notification-count" id="notification-count" hidden>0</span>
             </button>
-            <div class="user-chip">
+            <button class="user-chip" id="user-profile-button" type="button" aria-label="Open profile and phone setup">
               <div class="avatar" id="user-avatar">EC</div>
               <div><strong id="user-name">Emma Clarke</strong><small id="user-role">Regional Account Manager</small></div>
-            </div>
+            </button>
           </div>
         </header>
 
         <main class="main-content" id="main-content" tabindex="-1"></main>
       </section>
     </div>
+
+    <button class="notification-backdrop" id="notification-backdrop" type="button" aria-label="Close notifications" hidden></button>
+    <aside class="notification-panel" id="notification-panel" aria-labelledby="notification-title" hidden>
+      <header class="notification-panel__header">
+        <div><span class="eyebrow">Role-aware inbox</span><h2 id="notification-title">Notifications</h2></div>
+        <button class="icon-button" type="button" data-notification-action="close" aria-label="Close notifications">×</button>
+      </header>
+      <div class="notification-panel__toolbar" id="notification-toolbar"></div>
+      <div class="notification-list" id="notification-list"></div>
+      <footer class="notification-panel__footer" id="notification-footer"></footer>
+    </aside>
 
     <button class="operator-note-fab" id="operator-note-fab" type="button" hidden>
       <span>＋</span> Add note
@@ -237,6 +251,6 @@
       </form>
     </dialog>
 
-    <script src="app.js?v=3"></script>
+    <script src="app.js?v=12"></script>
   </body>
 </html>
