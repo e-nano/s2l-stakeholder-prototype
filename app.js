@@ -19,7 +19,11 @@ const state = {
   orderPreparationRole: "farmer",
   sarahPlanningGranted: false,
   sarahDisplayTitle: "Field Technician",
-  sarahBranch: "Operations · North",
+  sarahManager: "daniel",
+  sarahReportingEditorOpen: false,
+  selectedHierarchyUser: "sarah",
+  hierarchyBuilderOpen: false,
+  demoHierarchyPerson: null,
   notificationPreferences: {
     orders: true,
     assignment: true,
@@ -116,6 +120,47 @@ const state = {
       actionLabel: "Open support request",
     },
   ],
+};
+
+const reportingManagers = {
+  daniel: {
+    initials: "DW",
+    name: "Daniel Wright",
+    title: "Sampling Manager",
+    team: "North Operations",
+    director: { initials: "FH", name: "Fiona Hale", title: "Regional Director" },
+  },
+  leila: {
+    initials: "LH",
+    name: "Leila Hassan",
+    title: "Sampling Manager",
+    team: "South Operations",
+    director: { initials: "MC", name: "Marcus Cole", title: "Regional Director" },
+  },
+};
+
+const hierarchyPeople = {
+  alex: { initials: "AM", name: "Alex Morgan", title: "Organisation Lead", manager: null, team: "S2L Demo Organisation", profile: "master" },
+  fiona: { initials: "FH", name: "Fiona Hale", title: "Regional Director", manager: "alex", team: "North Operations", profile: "director" },
+  marcus: { initials: "MC", name: "Marcus Cole", title: "Regional Director", manager: "alex", team: "South Operations", profile: "director" },
+  maya: { initials: "MP", name: "Maya Patel", title: "Laboratory Director", manager: "alex", team: "Laboratory", profile: "lab-director" },
+  daniel: { initials: "DW", name: "Daniel Wright", title: "Sampling Manager", manager: "fiona", team: "North Operations", profile: "manager" },
+  emma: { initials: "EC", name: "Emma Clarke", title: "Area Manager", manager: "fiona", team: "North Operations", profile: "manager" },
+  leila: { initials: "LH", name: "Leila Hassan", title: "Sampling Manager", manager: "marcus", team: "South Operations", profile: "manager" },
+  priya: { initials: "PS", name: "Priya Shah", title: "Area Manager", manager: "marcus", team: "South Operations", profile: "manager" },
+  ben: { initials: "BW", name: "Ben Ward", title: "Laboratory Manager", manager: "maya", team: "Laboratory", profile: "lab-manager" },
+  sarah: { initials: "SL", name: "Sarah Lewis", title: "Field Technician", manager: "daniel", team: "North Operations", profile: "field" },
+  jacob: { initials: "JR", name: "Jacob Reed", title: "Field Operator", manager: "daniel", team: "North Operations", profile: "field" },
+  chloe: { initials: "CB", name: "Chloe Bennett", title: "Field Operator", manager: "daniel", team: "North Operations", profile: "field" },
+  louis: { initials: "LM", name: "Louis Morgan", title: "Field Operator", manager: "emma", team: "North Operations", profile: "field" },
+  grace: { initials: "GS", name: "Grace Singh", title: "Field Operator", manager: "emma", team: "North Operations", profile: "field" },
+  owen: { initials: "OP", name: "Owen Price", title: "Field Operator", manager: "leila", team: "South Operations", profile: "field" },
+  nia: { initials: "NE", name: "Nia Evans", title: "Field Operator", manager: "leila", team: "South Operations", profile: "field" },
+  imran: { initials: "IK", name: "Imran Khan", title: "Field Operator", manager: "leila", team: "South Operations", profile: "field" },
+  jack: { initials: "JW", name: "Jack Wood", title: "Field Operator", manager: "priya", team: "South Operations", profile: "field" },
+  maria: { initials: "MR", name: "Maria Rossi", title: "Field Operator", manager: "priya", team: "South Operations", profile: "field" },
+  arun: { initials: "AD", name: "Arun Das", title: "Laboratory Operator", manager: "ben", team: "Laboratory", profile: "lab-operator" },
+  lily: { initials: "LK", name: "Lily King", title: "Laboratory Operator", manager: "ben", team: "Laboratory", profile: "lab-operator" },
 };
 
 const roles = {
@@ -231,6 +276,10 @@ function effectiveActions(actor = state.role) {
 
 function hasAction(action) {
   return effectiveActions().some(grant => grant === action || grant.startsWith(`${action}:`) || action.startsWith(`${grant}:`));
+}
+
+function escapeMarkup(value) {
+  return String(value).replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[character]);
 }
 
 const operators = [
@@ -909,54 +958,195 @@ function notificationPreferences() {
     <section class="preferences-layout"><div class="panel"><header class="panel__header"><div><h2>Alex Morgan's subscriptions</h2><p>All non-laboratory scope · proposed defaults</p></div>${status("Web first","blue")}</header><div class="notification-preferences">${Object.entries(labels).map(([key,label]) => `<label><span><strong>${label}</strong><small>${key === "orders" ? "Farmer-to-commercial events remain web-only" : key === "exceptions" ? "Mandatory treatment still to agree" : "Current permitted records only"}</small></span><input type="checkbox" data-notification-preference="${key}" ${state.notificationPreferences[key] ? "checked" : ""} /></label>`).join("")}</div></div><aside class="stack"><div class="panel"><header class="panel__header"><div><h2>Channel boundary</h2><p>Preferences cannot invent a supported channel</p></div></header><div class="panel__body"><div class="readiness-checklist"><span>✓ Farmer order/support → commercial: web only</span><span>✓ Phone verification: separate one-time SMS</span><span>✓ Operational SMS: only agreed eligible events</span><span>— Muting never hides order or exception history</span></div></div></div><div class="panel"><div class="panel__body"><div class="open-policy"><strong>Still open with Agrii</strong><p>Defaults, mandatory alerts, quiet hours, digests, self-notifications, fallback recipients and escalation timing.</p></div></div></div></aside></section>`;
 }
 
-function hierarchyPerson(person, className = "") {
-  return `<div class="hierarchy-person ${className}"><span>${person.initials}</span><div><strong>${person.name}</strong><small>${person.title} · display title</small></div></div>`;
+function hierarchyUser(userId) {
+  const person = { ...hierarchyPeople[userId] };
+  if (userId === "alex" && state.demoHierarchyPerson?.manager === null && hierarchyPeople.demo) person.manager = "demo";
+  if (userId === "sarah") {
+    const manager = selectedSarahManager();
+    person.title = state.sarahDisplayTitle;
+    person.manager = state.sarahManager;
+    person.team = manager.team;
+  }
+  return person;
 }
 
-function hierarchyTeam(manager, members) {
-  return `<section class="hierarchy-team"><div class="hierarchy-manager"><span>${manager.initials}</span><div><strong>${manager.name}</strong><small>${manager.title} · display title</small></div><em>${members.length} operators</em></div><div class="hierarchy-operators">${members.map(member => hierarchyPerson(member, member.focused ? "is-focused" : "")).join("")}</div></section>`;
+function hierarchyPerson(userId) {
+  const person = hierarchyUser(userId);
+  return `<button type="button" class="hierarchy-person ${state.selectedHierarchyUser === userId ? "is-focused" : ""}" data-action="select-hierarchy-user" data-user="${userId}"><span>${person.initials}</span><div><strong>${person.name}</strong><small>${person.title} · view access</small></div></button>`;
+}
+
+function hierarchyTeam(managerId, memberIds) {
+  const manager = hierarchyUser(managerId);
+  return `<section class="hierarchy-team"><button type="button" class="hierarchy-manager ${state.selectedHierarchyUser === managerId ? "is-focused" : ""}" data-action="select-hierarchy-user" data-user="${managerId}"><span>${manager.initials}</span><div><strong>${manager.name}</strong><small>${manager.title} · view access</small></div><em>${memberIds.length} people</em></button><div class="hierarchy-operators">${memberIds.map(hierarchyPerson).join("")}</div></section>`;
+}
+
+function selectedSarahManager() {
+  return reportingManagers[state.sarahManager];
+}
+
+function hierarchyPermissionProfile(userId) {
+  const person = hierarchyUser(userId);
+  const commonLocked = { key: "access", label: "Manage users & access", code: "ACCESS.ADMIN", scope: "Organisation", scopeType: "Protected scope", source: "Master authority", sourceNote: "Cannot be delegated here", status: "locked" };
+  if (person.profile === "master") return [
+    { key: "access", label: "Manage users & access", code: "ACCESS.ADMIN", scope: "Organisation", scopeType: "All users", source: "Master authority", sourceNote: "Protected account authority", status: "granted" },
+    { key: "operations", label: "Run non-laboratory workflow", code: "WORK.ALL_NON_LAB", scope: "Organisation", scopeType: "All non-lab records", source: "Direct grant", sourceNote: "Master configuration", status: "granted" },
+    { key: "finance", label: "Review commercial closeout", code: "FINANCE.REVIEW", scope: "Organisation", scopeType: "Orders and invoices", source: "Direct grant", sourceNote: "Master configuration", status: "granted" },
+    { key: "lab", label: "Perform laboratory analysis", code: "LAB.ANALYSE", scope: "Laboratory", scopeType: "Separately authorised", source: "No active grant", sourceNote: "Lab authority required", status: "not-granted" },
+  ];
+  if (person.profile === "director") return [
+    { key: "portfolio", label: "View operational portfolio", code: "WORK.VIEW_PORTFOLIO", scope: person.team, scopeType: "Reporting subtree", source: "Direct grant", sourceNote: "By Alex Morgan", status: "granted" },
+    { key: "planning", label: "Schedule & assign work", code: "WORK.PLANNING", scope: person.team, scopeType: "Managers and descendants", source: "Direct grant", sourceNote: "By Alex Morgan", status: "granted" },
+    { key: "performance", label: "Review team performance", code: "WORK.PERFORMANCE", scope: person.team, scopeType: "Aggregated and individual", source: "Direct grant", sourceNote: "By Alex Morgan", status: "granted" },
+    commonLocked,
+  ];
+  if (person.profile === "manager") return [
+    { key: "planning", label: "Schedule & assign work", code: "WORK.PLANNING", scope: `${person.name}'s team`, scopeType: "Direct reports", source: "Direct grant", sourceNote: "By organisation Master", status: "granted" },
+    { key: "progress", label: "View team progress", code: "WORK.TEAM_PROGRESS", scope: `${person.name}'s team`, scopeType: "Reporting subtree", source: "Direct grant", sourceNote: "By organisation Master", status: "granted" },
+    { key: "exceptions", label: "Resolve field exceptions", code: "WORK.EXCEPTIONS", scope: person.team, scopeType: "Assigned responsibility", source: "Direct grant", sourceNote: "By organisation Master", status: "granted" },
+    commonLocked,
+  ];
+  if (person.profile === "field") return [
+    { key: "sampling", label: "Perform sampling", code: "FIELD.SAMPLE", scope: "Own assigned jobs", scopeType: "Assignment-scoped", source: "Direct grant", sourceNote: "By field manager", status: "granted" },
+    { key: "notes", label: "Record notes & request sync", code: "FIELD.NOTES_SYNC", scope: "Own assigned jobs", scopeType: "Assignment-scoped", source: "Direct grant", sourceNote: "By field manager", status: "granted" },
+    { key: "planning", label: "Schedule & assign work", code: "WORK.PLANNING", scope: `${hierarchyUser(person.manager).name}'s team`, scopeType: "Hierarchy-based scope", source: "Direct grant", sourceNote: userId === "sarah" && state.sarahPlanningGranted ? "By Alex Morgan" : "No active grant", status: userId === "sarah" && state.sarahPlanningGranted ? "granted" : "not-granted" },
+    commonLocked,
+  ];
+  if (person.profile === "new-user") return [
+    { key: "work", label: "View assigned work", code: "WORK.VIEW_ASSIGNED", scope: "No record scope", scopeType: "Not configured", source: "No active grant", sourceNote: "Grant explicitly after review", status: "not-granted" },
+    { key: "sampling", label: "Perform sampling", code: "FIELD.SAMPLE", scope: "No record scope", scopeType: "Not configured", source: "No active grant", sourceNote: "Grant explicitly after review", status: "not-granted" },
+    { key: "planning", label: "Schedule & assign work", code: "WORK.PLANNING", scope: "No record scope", scopeType: "Not configured", source: "No active grant", sourceNote: "Grant explicitly after review", status: "not-granted" },
+    commonLocked,
+  ];
+  if (person.profile === "lab-director") return [
+    { key: "receipt", label: "Reconcile laboratory receipt", code: "LAB.RECEIVE", scope: "Laboratory", scopeType: "All inbound batches", source: "Direct grant", sourceNote: "By Alex Morgan", status: "granted" },
+    { key: "results", label: "Upload laboratory results", code: "LAB.RESULTS", scope: "Laboratory", scopeType: "All lab orders", source: "Direct grant", sourceNote: "By Alex Morgan", status: "granted" },
+    { key: "publish", label: "Publish final reports", code: "REPORT.PUBLISH", scope: "Laboratory", scopeType: "Validated results", source: "Direct grant", sourceNote: "By Alex Morgan", status: "granted" },
+    { key: "sampling", label: "Perform field sampling", code: "FIELD.SAMPLE", scope: "Field operations", scopeType: "Separate action", source: "No active grant", sourceNote: "Not required for Maya", status: "not-granted" },
+  ];
+  if (person.profile === "lab-manager") return [
+    { key: "receipt", label: "Reconcile laboratory receipt", code: "LAB.RECEIVE", scope: "Laboratory", scopeType: "Inbound batches", source: "Direct grant", sourceNote: "By Maya Patel", status: "granted" },
+    { key: "custody", label: "Manage laboratory custody", code: "LAB.CUSTODY", scope: "Laboratory", scopeType: "Pods and samples", source: "Direct grant", sourceNote: "By Maya Patel", status: "granted" },
+    { key: "results", label: "Upload result drafts", code: "LAB.RESULTS_DRAFT", scope: "Laboratory", scopeType: "Assigned batches", source: "Direct grant", sourceNote: "By Maya Patel", status: "granted" },
+    { key: "publish", label: "Publish final reports", code: "REPORT.PUBLISH", scope: "Laboratory", scopeType: "Validated results", source: "No active grant", sourceNote: "Maya retains release", status: "not-granted" },
+  ];
+  return [
+    { key: "receipt", label: "Scan received pods", code: "LAB.SCAN", scope: "Assigned lab batches", scopeType: "Assignment-scoped", source: "Direct grant", sourceNote: "By Ben Ward", status: "granted" },
+    { key: "weights", label: "Record sample weights", code: "LAB.WEIGHTS", scope: "Assigned lab batches", scopeType: "Assignment-scoped", source: "Direct grant", sourceNote: "By Ben Ward", status: "granted" },
+    { key: "results", label: "Upload result drafts", code: "LAB.RESULTS_DRAFT", scope: "Laboratory", scopeType: "Separate grant", source: "No active grant", sourceNote: "Manager action", status: "not-granted" },
+    { key: "sampling", label: "Perform field sampling", code: "FIELD.SAMPLE", scope: "Field operations", scopeType: "Separate action", source: "No active grant", sourceNote: "Not a lab action", status: "not-granted" },
+  ];
+}
+
+function hierarchyReportingChain(userId) {
+  const chain = [];
+  let currentId = userId;
+  while (currentId) {
+    const person = hierarchyUser(currentId);
+    chain.unshift({ id: currentId, ...person });
+    currentId = person.manager;
+  }
+  return chain;
+}
+
+function hierarchyPermissionRow(permission, userId) {
+  const statusClass = permission.status === "granted" ? "is-granted" : permission.status === "locked" ? "is-locked" : "is-not-granted";
+  const statusIcon = permission.status === "granted" ? "✓" : permission.status === "locked" ? "⌁" : "○";
+  const statusLabel = permission.status === "granted" ? "Granted" : permission.status === "locked" ? "Locked" : "Not granted";
+  const control = userId === "sarah" && permission.key === "planning"
+    ? `<button class="permission-control ${permission.status === "granted" ? "remove" : ""}" data-action="toggle-sarah-planning">${permission.status === "granted" ? "Remove" : "Grant"}</button>`
+    : `<em>${statusLabel}</em>`;
+  return `<article class="${statusClass}"><span>${statusIcon}</span><div><strong>${permission.label}</strong><small>${permission.code}</small></div><div><strong>${permission.scope}</strong><small>${permission.scopeType}</small></div><div><strong>${permission.source}</strong><small>${permission.sourceNote}</small></div>${control}</article>`;
+}
+
+function hierarchyScopeSummary(person) {
+  if (person.profile === "master") return "Organisation · non-lab";
+  if (person.profile === "director") return `${person.team} portfolio`;
+  if (person.profile === "manager") return `${person.name}'s team`;
+  if (person.profile === "field") return "Own assigned jobs";
+  if (person.profile === "new-user") return "No record scope";
+  return "Laboratory records";
+}
+
+function hierarchyAccessSummary(person, grantedCount) {
+  if (person.profile === "master") return `${person.name} has protected access administration and ${grantedCount - 1} non-laboratory grants. Laboratory analysis remains separate.`;
+  if (person.profile === "director") return `${person.name} can plan and review work across ${person.team}, but cannot change user permissions.`;
+  if (person.profile === "manager") return `${person.name} can plan, monitor and resolve work for the reporting team, but cannot change access.`;
+  if (person.profile === "field") return `${person.name} can work on assigned jobs. Planning appears only when separately granted.`;
+  if (person.profile === "new-user") return `${person.name} is now in the people hierarchy with zero action grants. Reporting structure never creates access automatically.`;
+  if (person.profile === "lab-director") return `${person.name} can manage laboratory receipt, results and publication, but has no field-sampling grant.`;
+  if (person.profile === "lab-manager") return `${person.name} can manage laboratory custody and drafts; final publication remains with Maya Patel.`;
+  return `${person.name} can process assigned laboratory batches but cannot publish results or perform field sampling.`;
+}
+
+function hierarchyBuilder() {
+  if (!state.hierarchyBuilderOpen) return "";
+  const managerIds = ["daniel", "emma", "leila", "priya", "ben"];
+  return `<section class="panel hierarchy-builder"><header class="panel__header"><div><span class="eyebrow">Simple hierarchy setup</span><h2>Add a person at the top or under a manager</h2><p>Choose the person's position and the reporting chain is created automatically. Permissions remain separate.</p></div><button class="secondary-button" data-action="toggle-hierarchy-builder">Close</button></header><div class="panel__body"><div class="hierarchy-builder-steps"><span><i>1</i><strong>Name the person</strong></span><span><i>2</i><strong>Choose top level or manager</strong></span><span><i>3</i><strong>Grant permissions separately</strong></span></div><div class="hierarchy-builder-form"><label class="form-field"><span>Full name</span><input id="new-hierarchy-name" value="Thomas Reed" /></label><label class="form-field"><span>Display title</span><input id="new-hierarchy-title" value="Field Operator" /></label><label class="form-field"><span>Position in hierarchy</span><select id="new-hierarchy-manager"><option value="top">Top of organisation · no manager</option>${managerIds.map(managerId => { const manager = hierarchyUser(managerId); return `<option value="${managerId}">Under ${manager.name} · ${manager.team}</option>`; }).join("")}</select></label><button class="primary-button" data-action="create-hierarchy-person">Add person to hierarchy</button></div><div class="hierarchy-builder-rule"><strong>Important access rule</strong><span>The new person starts with <b>zero action permissions</b>, even at the top of the hierarchy. Hierarchy describes people; it does not grant access.</span></div></div></section>`;
 }
 
 function organisationHierarchy() {
-  const sarah = { initials: "SL", name: "Sarah Lewis", title: state.sarahDisplayTitle, focused: true };
-  const northSarah = state.sarahBranch.endsWith("North") ? [sarah] : [];
-  const southSarah = state.sarahBranch.endsWith("South") ? [sarah] : [];
+  const northSarah = state.sarahManager === "daniel" ? ["sarah"] : [];
+  const southSarah = state.sarahManager === "leila" ? ["sarah"] : [];
+  const demoFor = managerId => state.demoHierarchyPerson?.manager === managerId ? ["demo"] : [];
   const branches = [
     {
-      scope: "Operations · North",
-      code: "NORTH",
-      director: { initials: "FH", name: "Fiona Hale", title: "Regional Director" },
+      name: "North Operations",
+      code: "NORTH TEAM",
+      director: "fiona",
       teams: [
-        { manager: { initials: "DW", name: "Daniel Wright", title: "Sampling Manager" }, members: [...northSarah, { initials: "JR", name: "Jacob Reed", title: "Field Operator" }, { initials: "CB", name: "Chloe Bennett", title: "Field Operator" }] },
-        { manager: { initials: "EC", name: "Emma Clarke", title: "Area Manager" }, members: [{ initials: "LM", name: "Louis Morgan", title: "Field Operator" }, { initials: "GS", name: "Grace Singh", title: "Field Operator" }] },
+        { manager: "daniel", members: [...northSarah, "jacob", "chloe", ...demoFor("daniel")] },
+        { manager: "emma", members: ["louis", "grace", ...demoFor("emma")] },
       ],
     },
     {
-      scope: "Operations · South",
-      code: "SOUTH",
-      director: { initials: "MC", name: "Marcus Cole", title: "Regional Director" },
+      name: "South Operations",
+      code: "SOUTH TEAM",
+      director: "marcus",
       teams: [
-        { manager: { initials: "LH", name: "Leila Hassan", title: "Sampling Manager" }, members: [...southSarah, { initials: "OP", name: "Owen Price", title: "Field Operator" }, { initials: "NE", name: "Nia Evans", title: "Field Operator" }, { initials: "IK", name: "Imran Khan", title: "Field Operator" }] },
-        { manager: { initials: "PS", name: "Priya Shah", title: "Area Manager" }, members: [{ initials: "JW", name: "Jack Wood", title: "Field Operator" }, { initials: "MR", name: "Maria Rossi", title: "Field Operator" }] },
+        { manager: "leila", members: [...southSarah, "owen", "nia", "imran", ...demoFor("leila")] },
+        { manager: "priya", members: ["jack", "maria", ...demoFor("priya")] },
       ],
     },
     {
-      scope: "Laboratory",
-      code: "LAB",
-      director: { initials: "MP", name: "Maya Patel", title: "Laboratory Director" },
+      name: "Laboratory",
+      code: "LAB TEAM",
+      director: "maya",
       teams: [
-        { manager: { initials: "BW", name: "Ben Ward", title: "Laboratory Manager" }, members: [{ initials: "AD", name: "Arun Das", title: "Laboratory Operator" }, { initials: "LK", name: "Lily King", title: "Laboratory Operator" }] },
+        { manager: "ben", members: ["arun", "lily", ...demoFor("ben")] },
       ],
     },
   ];
-  return `<section class="panel organisation-hierarchy"><header class="panel__header hierarchy-heading"><div><span class="eyebrow">Demonstration organisation</span><h2>Three director branches with delegated teams</h2><p>Titles explain the organisation. Actions and record scope still determine what each user can see and do.</p></div><div class="hierarchy-counts"><span><strong>3</strong> directors</span><span><strong>5</strong> managers</span><span><strong>12</strong> operators</span></div></header><div class="panel__body"><div class="hierarchy-root"><span>AM</span><div><small>Protected access authority</small><strong>Alex Morgan</strong><em>Master · S2L Demo Organisation</em></div></div><div class="hierarchy-directors">${branches.map(branch => `<article class="hierarchy-branch ${branch.scope === "Laboratory" ? "is-lab" : ""}"><header><div class="hierarchy-director-avatar">${branch.director.initials}</div><div><small>${branch.code} DIRECTOR BRANCH</small><strong>${branch.director.name}</strong><span>${branch.director.title} · display title</span></div></header><div class="hierarchy-branch-scope">Scope anchor · ${branch.scope}</div><div class="hierarchy-teams">${branch.teams.map(team => hierarchyTeam(team.manager, team.members)).join("")}</div></article>`).join("")}</div><div class="hierarchy-legend"><span><i class="title-dot"></i> Titles describe position</span><span><i class="scope-dot"></i> Hierarchy defines possible scope</span><span><i class="action-dot"></i> Explicit actions enable controls</span></div></div></section>`;
+  const alex = hierarchyUser("alex");
+  const demoIsTop = state.demoHierarchyPerson?.manager === null && hierarchyPeople.demo;
+  const topPerson = demoIsTop ? hierarchyUser("demo") : null;
+  const topRoot = topPerson ? `<button type="button" class="hierarchy-root hierarchy-root--top ${state.selectedHierarchyUser === "demo" ? "is-focused" : ""}" data-action="select-hierarchy-user" data-user="demo"><span>${topPerson.initials}</span><div><small>Top of organisation · no manager</small><strong>${topPerson.name}</strong><em>Alex Morgan reports to ${topPerson.name.split(" ")[0]}</em></div></button>` : "";
+  const alexRoot = `<button type="button" class="hierarchy-root ${topPerson ? "hierarchy-root--child" : ""} ${state.selectedHierarchyUser === "alex" ? "is-focused" : ""}" data-action="select-hierarchy-user" data-user="alex"><span>${alex.initials}</span><div><small>${topPerson ? `Reports to ${topPerson.name.split(" ")[0]}` : "Organisation lead"} · select to view access</small><strong>${alex.name}</strong><em>Fiona Hale, Marcus Cole and Maya Patel report to Alex</em></div></button>`;
+  return `<section class="panel organisation-hierarchy"><header class="panel__header hierarchy-heading"><div><span class="eyebrow">People hierarchy · select anyone</span><h2>Choose a person to compare their effective access</h2><p>Every connector means “reports to”. People can be added at the top or under an existing manager.</p></div><div class="hierarchy-counts"><span><strong>${topPerson ? 2 : 1}</strong> ${topPerson ? "leadership levels" : "top level"}</span><span><strong>3</strong> directors</span><span><strong>5</strong> managers</span><span><strong>${state.demoHierarchyPerson && !topPerson ? 13 : 12}</strong> team members</span></div></header><div class="panel__body"><div class="hierarchy-root-stack">${topRoot}${alexRoot}</div><div class="hierarchy-directors">${branches.map(branch => { const director = hierarchyUser(branch.director); return `<article class="hierarchy-branch ${branch.name === "Laboratory" ? "is-lab" : ""}"><header><button type="button" class="hierarchy-director-select ${state.selectedHierarchyUser === branch.director ? "is-focused" : ""}" data-action="select-hierarchy-user" data-user="${branch.director}"><div class="hierarchy-director-avatar">${director.initials}</div><div><small>${branch.code} · REPORTS TO ALEX</small><strong>${director.name}</strong><span>${director.title} · leads ${branch.name} · view access</span></div></button></header><div class="hierarchy-branch-scope">Reporting team · ${branch.name} · no permission is implied</div><div class="hierarchy-teams">${branch.teams.map(team => hierarchyTeam(team.manager, team.members)).join("")}</div></article>`; }).join("")}</div><div class="hierarchy-legend"><span><i class="title-dot"></i> Select any person</span><span><i class="scope-dot"></i> Team names organise people</span><span><i class="action-dot"></i> Panel below shows their access</span></div></div></section>`;
 }
 
 function masterAccess() {
+  if (state.selectedHierarchyUser !== "sarah") return selectedHierarchyAccess();
   const title = state.sarahDisplayTitle;
-  return `${pageHeader("Protected Master authority", "Users, hierarchy & permissions", "Configure identity, hierarchy, actions and record scopes side by side. Display titles never grant access.", `<button class="secondary-button">Access audit</button><button class="primary-button">Invite user</button>`)}
+  const manager = selectedSarahManager();
+  const grantedCount = state.sarahPlanningGranted ? 3 : 2;
+  return `${pageHeader("Protected Master authority", "Users, hierarchy & permissions", "People report to people. Action permissions and record scopes are configured separately.", `<button class="secondary-button">Access audit</button><button class="primary-button" data-action="toggle-hierarchy-builder">+ Add person</button>`)}
+    ${hierarchyBuilder()}
     ${organisationHierarchy()}
-    <section class="access-editor"><aside class="panel hierarchy-path-panel"><header class="panel__header"><div><h2>Selected hierarchy path</h2><p>Sarah Lewis · USER-018</p></div></header><div class="panel__body"><div class="hierarchy-path"><span><small>Organisation</small><strong>S2L Demo Organisation</strong></span><i>↓</i><span><small>Director branch</small><strong>${state.sarahBranch}</strong></span><i>↓</i><span><small>Line manager</small><strong>${state.sarahBranch.endsWith("North") ? "Daniel Wright" : "Leila Hassan"}</strong></span><i>↓</i><span class="is-current"><small>Selected user</small><strong>Sarah Lewis</strong></span></div><div class="hierarchy-rule"><strong>Moving a user</strong><p>Re-evaluates descendant-scoped records. It never copies another user's actions, permissions or work history.</p></div></div></aside><div class="stack"><div class="panel"><header class="panel__header"><div><span class="eyebrow">Selected user</span><h2>Sarah Lewis</h2><p>Identity USER-018 · title can change without changing access</p></div>${status(state.sarahPlanningGranted ? "Field + planning actions" : "Field actions only",state.sarahPlanningGranted ? "blue" : "grey")}</header><div class="panel__body"><div class="identity-permission-grid"><label class="form-field"><span>Optional display title</span><input value="${title}" readonly /></label><div><small>Hierarchy position</small><strong>${state.sarahBranch} · reports to ${state.sarahBranch.endsWith("North") ? "Daniel" : "Leila"}</strong><span>Moving branch recomputes scoped records; it does not copy permissions</span></div></div><div class="permission-action-list"><article class="is-granted"><span>✓</span><div><strong>Perform sampling</strong><small>Scope · own assigned jobs</small></div><em>Granted</em></article><article class="is-granted"><span>✓</span><div><strong>Record notes & request sync</strong><small>Scope · own assigned jobs</small></div><em>Granted</em></article><article class="${state.sarahPlanningGranted ? "is-granted" : ""}"><span>${state.sarahPlanningGranted ? "✓" : "○"}</span><div><strong>Schedule & assign work</strong><small>Scope · ${state.sarahBranch} including descendants</small></div><em>${state.sarahPlanningGranted ? "Granted" : "Not granted"}</em></article><article><span>○</span><div><strong>Change user permissions</strong><small>Protected Master authority</small></div><em>Not granted</em></article></div><div class="access-editor-actions"><button class="secondary-button" data-action="rename-sarah-title">${title === "Master" ? "Restore display title" : "Rename title to Master"}</button><button class="secondary-button" data-action="move-sarah-branch">Move to ${state.sarahBranch.endsWith("North") ? "South" : "North"} branch</button><button class="primary-button" data-action="toggle-sarah-planning">${state.sarahPlanningGranted ? "Remove planning action" : "Grant planning action"}</button></div><p class="batch-note">Preview: ${title === "Master" ? "The word Master grants nothing. " : ""}${state.sarahPlanningGranted ? `Planning appears for ${state.sarahBranch}; sampling remains unchanged.` : "Planning is absent for Sarah; her title is not the reason."}</p></div></div><div class="panel"><header class="panel__header"><div><h2>Effective-access preview</h2><p>Different failure reasons remain visible</p></div></header><div class="panel__body decision-boundaries horizontal"><article><span class="boundary-icon permission">P</span><div><strong>Missing action</strong><p>No permission-management control—even if her title says Master.</p></div></article><article><span class="boundary-icon scope">S</span><div><strong>Record scope</strong><p>Assigned jobs${state.sarahPlanningGranted ? ` + ${state.sarahBranch}` : " only"}.</p></div></article><article><span class="boundary-icon readiness">G</span><div><strong>Mandatory gates</strong><p>Sampling, sync and custody rules still apply.</p></div></article></div></div></div></div></section>`;
+    <section class="access-editor"><aside class="panel hierarchy-path-panel"><header class="panel__header"><div><span class="eyebrow">Selected person</span><h2>Reporting line</h2><p>Sarah Lewis · USER-018</p></div></header><div class="panel__body"><div class="selected-user-summary"><span>SL</span><div><strong>Sarah Lewis</strong><small>${title} · display title only</small></div></div><div class="reporting-chain"><article><span>AM</span><div><small>Organisation lead</small><strong>Alex Morgan</strong></div></article><i>↓</i><article><span>${manager.director.initials}</span><div><small>Reports to Alex</small><strong>${manager.director.name}</strong></div></article><i>↓</i><article><span>${manager.initials}</span><div><small>Reports to ${manager.director.name.split(" ")[0]}</small><strong>${manager.name}</strong></div></article><i>↓</i><article class="is-current"><span>SL</span><div><small>Reports to ${manager.name.split(" ")[0]}</small><strong>Sarah Lewis</strong></div></article></div><button class="secondary-button full-width" data-action="toggle-sarah-reporting-editor">${state.sarahReportingEditorOpen ? "Close manager editor" : "Change reporting manager"}</button>${state.sarahReportingEditorOpen ? `<div class="reporting-editor"><span class="eyebrow">Choose Sarah's manager</span><label class="form-field"><span>Reports directly to</span><select id="sarah-manager-select"><option value="daniel" ${state.sarahManager === "daniel" ? "selected" : ""}>Daniel Wright · North Operations</option><option value="leila" ${state.sarahManager === "leila" ? "selected" : ""}>Leila Hassan · South Operations</option></select></label><p>The list contains people who can manage field staff. This changes the reporting line, not Sarah's action grants or work history.</p><button class="primary-button full-width" data-action="apply-sarah-manager">Update reporting line</button></div>` : ""}<div class="hierarchy-rule"><strong>Hierarchy contains people</strong><p>Sarah reports to ${manager.name}, who reports to ${manager.director.name}. Permissions remain a separate list on the right.</p></div></div></aside><div class="stack"><div class="panel selected-access-panel"><header class="panel__header"><div><span class="eyebrow">Effective access · selected person</span><h2>Sarah Lewis</h2><p>Permissions below apply to USER-018 only</p></div>${status(`${grantedCount} actions granted`,state.sarahPlanningGranted ? "blue" : "green")}</header><div class="panel__body"><div class="access-separation-grid"><article><span>A</span><div><small>Action permissions</small><strong>${grantedCount} granted</strong><p>Controls which operations appear</p></div></article><article><span>S</span><div><small>Record scope</small><strong>${state.sarahPlanningGranted ? `${manager.name}'s team` : "Own assigned jobs"}</strong><p>Controls which records those actions can reach</p></div></article><article><span>R</span><div><small>Reports to</small><strong>${manager.name}</strong><p>${manager.team} · people hierarchy</p></div></article></div><div class="permission-table-heading"><span>Action</span><span>Record scope</span><span>Grant source</span><span>Status</span></div><div class="permission-action-list detailed"><article class="is-granted"><span>✓</span><div><strong>Perform sampling</strong><small>FIELD.SAMPLE</small></div><div><strong>Own assigned jobs</strong><small>Assignment-scoped</small></div><div><strong>Direct grant</strong><small>By Alex Morgan</small></div><em>Granted</em></article><article class="is-granted"><span>✓</span><div><strong>Record notes & request sync</strong><small>FIELD.NOTES_SYNC</small></div><div><strong>Own assigned jobs</strong><small>Assignment-scoped</small></div><div><strong>Direct grant</strong><small>By Alex Morgan</small></div><em>Granted</em></article><article class="${state.sarahPlanningGranted ? "is-granted" : "is-not-granted"}"><span>${state.sarahPlanningGranted ? "✓" : "○"}</span><div><strong>Schedule & assign work</strong><small>WORK.PLANNING</small></div><div><strong>${manager.name}'s team</strong><small>Hierarchy-based scope</small></div><div><strong>Direct grant</strong><small>${state.sarahPlanningGranted ? "By Alex Morgan" : "No active grant"}</small></div><button class="permission-control ${state.sarahPlanningGranted ? "remove" : ""}" data-action="toggle-sarah-planning">${state.sarahPlanningGranted ? "Remove" : "Grant"}</button></article><article class="is-locked"><span>⌁</span><div><strong>Manage users & access</strong><small>ACCESS.ADMIN</small></div><div><strong>Organisation</strong><small>Protected scope</small></div><div><strong>Master authority</strong><small>Cannot be delegated here</small></div><em>Locked</em></article></div><div class="permission-summary"><strong>Result for Sarah</strong><span>${state.sarahPlanningGranted ? `Planning controls are visible for people in ${manager.name}'s reporting team; field actions remain limited to Sarah's assigned jobs.` : "Field controls are visible for Sarah's assigned jobs. Planning and access-administration controls are hidden."}</span></div></div></div><div class="panel"><header class="panel__header"><div><h2>How access is evaluated</h2><p>All three checks must pass at the moment Sarah opens or changes a record</p></div></header><div class="panel__body decision-boundaries horizontal"><article><span class="boundary-icon permission">1</span><div><strong>Action grant</strong><p>Does Sarah have the specific action?</p></div></article><article><span class="boundary-icon scope">2</span><div><strong>Record scope</strong><p>Is the record assigned to Sarah or inside an explicitly permitted reporting team?</p></div></article><article><span class="boundary-icon readiness">3</span><div><strong>Workflow gate</strong><p>Are sampling, sync and custody prerequisites satisfied?</p></div></article></div></div></div></section>`;
+}
+
+function selectedHierarchyAccess() {
+  const userId = state.selectedHierarchyUser;
+  const person = hierarchyUser(userId);
+  const permissions = hierarchyPermissionProfile(userId);
+  const grantedCount = permissions.filter(permission => permission.status === "granted").length;
+  const manager = person.manager ? hierarchyUser(person.manager) : null;
+  const chain = hierarchyReportingChain(userId);
+  const chainHtml = chain.map((chainPerson, index) => `${index ? "<i>↓</i>" : ""}<article class="${chainPerson.id === userId ? "is-current" : ""}"><span>${chainPerson.initials}</span><div><small>${index === 0 ? (chain.length > 1 ? "Top of organisation" : "Organisation lead") : `Reports to ${chain[index - 1].name.split(" ")[0]}`}</small><strong>${chainPerson.name}</strong></div></article>`).join("");
+  return `${pageHeader("Protected Master authority", "Users, hierarchy & permissions", "Select any person to compare their action grants, record scope and reporting line.", `<button class="secondary-button">Access audit</button><button class="primary-button" data-action="toggle-hierarchy-builder">+ Add person</button>`)}
+    ${hierarchyBuilder()}
+    ${organisationHierarchy()}
+    <section class="access-editor"><aside class="panel hierarchy-path-panel"><header class="panel__header"><div><span class="eyebrow">Selected person</span><h2>Reporting line</h2><p>${person.name} · ${person.title}</p></div></header><div class="panel__body"><div class="selected-user-summary"><span>${person.initials}</span><div><strong>${person.name}</strong><small>${person.title} · display title only</small></div></div><div class="reporting-chain">${chainHtml}</div><div class="hierarchy-rule"><strong>People hierarchy only</strong><p>${manager ? `${person.name} reports to ${manager.name}. This reporting line does not grant or remove an action.` : `${person.name} is the organisation lead. Master authority is shown explicitly in the permission list.`}</p></div></div></aside><div class="stack"><div class="panel selected-access-panel"><header class="panel__header"><div><span class="eyebrow">Effective access · selected person</span><h2>${person.name}</h2><p>${person.title} · ${person.team}</p></div>${status(`${grantedCount} actions granted`,person.profile.includes("lab") ? "blue" : "green")}</header><div class="panel__body"><div class="access-separation-grid"><article><span>A</span><div><small>Action permissions</small><strong>${grantedCount} granted</strong><p>Controls which operations appear</p></div></article><article><span>S</span><div><small>Primary record scope</small><strong>${hierarchyScopeSummary(person)}</strong><p>Checked separately for every record</p></div></article><article><span>R</span><div><small>Reports to</small><strong>${manager ? manager.name : "No manager"}</strong><p>${person.team} · people hierarchy</p></div></article></div><div class="permission-table-heading"><span>Action</span><span>Record scope</span><span>Grant source</span><span>Status</span></div><div class="permission-action-list detailed">${permissions.map(permission => hierarchyPermissionRow(permission, userId)).join("")}</div><div class="permission-summary"><strong>Result for ${person.name.split(" ")[0]}</strong><span>${hierarchyAccessSummary(person, grantedCount)}</span></div></div></div><div class="panel"><header class="panel__header"><div><h2>Compare another person</h2><p>Select any name in the hierarchy above; this panel updates without changing their data</p></div></header><div class="panel__body decision-boundaries horizontal"><article><span class="boundary-icon permission">1</span><div><strong>Action grant</strong><p>Which actions can ${person.name.split(" ")[0]} perform?</p></div></article><article><span class="boundary-icon scope">2</span><div><strong>Record scope</strong><p>Which assigned, team or organisation records can those actions reach?</p></div></article><article><span class="boundary-icon readiness">3</span><div><strong>Workflow gate</strong><p>Permissions never bypass process prerequisites.</p></div></article></div></div></div></section>`;
 }
 
 function genericView() {
@@ -1197,9 +1387,44 @@ main.addEventListener("click", event => {
   if (action === "approve-order-subarea") { state.orderSubareaApproved = true; render(); showToast("AREA-221 approved and published. It is reusable but not automatically selected for the order."); }
   if (action === "return-order-preparation") { state.role = state.orderPreparationRole; roleSelect.value = state.role; if (state.role === "farmer") state.farmerLoggedIn = true; state.view = "new-order"; render(); showToast("Returned to the preserved order draft. Choose the approved Area explicitly if required."); }
   if (action === "blocked-colleague-edit") showToast("Viewing is permitted; editing or ownership transfer needs a separate granted action.");
+  if (action === "toggle-hierarchy-builder") { state.hierarchyBuilderOpen = !state.hierarchyBuilderOpen; render(); }
+  if (action === "create-hierarchy-person") {
+    const name = document.querySelector("#new-hierarchy-name")?.value?.trim() || "";
+    const title = document.querySelector("#new-hierarchy-title")?.value?.trim() || "Team member";
+    const managerSelection = document.querySelector("#new-hierarchy-manager")?.value || "top";
+    const managerId = managerSelection === "top" ? null : managerSelection;
+    if (!name) showToast("Enter the person's name before adding them to the hierarchy.");
+    else if (managerId === null || hierarchyPeople[managerId]) {
+      const manager = managerId ? hierarchyUser(managerId) : null;
+      const initials = name.split(/\s+/).slice(0, 2).map(part => part[0]).join("").toUpperCase();
+      hierarchyPeople.demo = { initials: escapeMarkup(initials), name: escapeMarkup(name), title: escapeMarkup(title), manager: managerId, team: manager?.team || "S2L Demo Organisation", profile: "new-user" };
+      state.demoHierarchyPerson = { manager: managerId };
+      state.selectedHierarchyUser = "demo";
+      state.hierarchyBuilderOpen = false;
+      render();
+      showToast(manager ? `${name} added under ${manager.name} with zero action permissions.` : `${name} added at the top. Alex now reports to them; permissions remain empty.`);
+    }
+  }
+  if (action === "select-hierarchy-user") {
+    const userId = actionControl.dataset.user;
+    if (hierarchyPeople[userId]) {
+      state.selectedHierarchyUser = userId;
+      state.sarahReportingEditorOpen = false;
+      render();
+      showToast(`Showing ${hierarchyUser(userId).name}'s effective permissions and reporting line.`);
+    }
+  }
   if (action === "toggle-sarah-planning") { state.sarahPlanningGranted = !state.sarahPlanningGranted; render(); showToast(`Sarah's planning action ${state.sarahPlanningGranted ? "granted" : "removed"}. Her title and field permissions did not change.`); }
-  if (action === "rename-sarah-title") { state.sarahDisplayTitle = state.sarahDisplayTitle === "Master" ? "Field Technician" : "Master"; render(); showToast("Display title changed. Effective actions, scope and Master authority are unchanged."); }
-  if (action === "move-sarah-branch") { state.sarahBranch = state.sarahBranch.endsWith("North") ? "Operations · South" : "Operations · North"; render(); showToast("Hierarchy branch changed. Descendant-scoped records were recomputed; permissions and work history were not copied or rewritten."); }
+  if (action === "toggle-sarah-reporting-editor") { state.sarahReportingEditorOpen = !state.sarahReportingEditorOpen; render(); }
+  if (action === "apply-sarah-manager") {
+    const managerSelect = document.querySelector("#sarah-manager-select");
+    if (managerSelect && reportingManagers[managerSelect.value]) {
+      state.sarahManager = managerSelect.value;
+      state.sarahReportingEditorOpen = false;
+      render();
+      showToast(`Sarah now reports to ${selectedSarahManager().name}. Her action grants and work history did not change.`);
+    }
+  }
   if (action === "propose-area") showToast("Missing geography proposed; users with geography validation access will review it before use.");
   if (action === "admin-maps") { state.view = "maps"; render(); }
   if (action === "publish-boundary") { state.boundaryPublished = true; render(); showToast("East Meadow boundary v4 published with its reason and impact history."); }
